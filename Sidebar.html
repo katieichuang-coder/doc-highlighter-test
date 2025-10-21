@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+      font-size: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #4285f4;
+    }
+
+    .button-group {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+
+    .primary-button {
+      background-color: #4285f4;
+      color: white;
+    }
+
+    .primary-button:hover {
+      background-color: #357ae8;
+    }
+
+    .primary-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .secondary-button {
+      background-color: #f1f3f4;
+      color: #333;
+    }
+
+    .secondary-button:hover {
+      background-color: #e8eaed;
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .status.success {
+      background-color: #e6f4ea;
+      color: #137333;
+      border: 1px solid #137333;
+    }
+
+    .status.error {
+      background-color: #fce8e6;
+      color: #c5221f;
+      border: 1px solid #c5221f;
+    }
+
+    .status.info {
+      background-color: #e8f0fe;
+      color: #1967d2;
+      border: 1px solid #1967d2;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #4285f4;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .examples {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .examples h3 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .examples ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .examples li {
+      margin-bottom: 4px;
+      color: #666;
+      cursor: pointer;
+    }
+
+    .examples li:hover {
+      color: #4285f4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Analyze Document with Claude AI</h2>
+
+    <label for="userPrompt">What would you like Claude to analyze?</label>
+    <textarea id="userPrompt" placeholder="Example: Highlight all instances where passive voice is used"></textarea>
+
+    <div class="button-group">
+      <button class="primary-button" id="analyzeBtn" onclick="analyzeDocument()">Analyze</button>
+      <button class="secondary-button" onclick="clearHighlights()">Clear</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Analyzing document...</p>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="examples">
+      <h3>Example Prompts:</h3>
+      <ul>
+        <li onclick="setPrompt('Highlight all instances of passive voice')">Highlight passive voice</li>
+        <li onclick="setPrompt('Find and highlight all technical jargon')">Find technical jargon</li>
+        <li onclick="setPrompt('Highlight sentences that are too long or complex')">Find complex sentences</li>
+        <li onclick="setPrompt('Identify and highlight any potential grammar errors')">Find grammar errors</li>
+        <li onclick="setPrompt('Highlight all action items or tasks mentioned')">Find action items</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function analyzeDocument() {
+      var prompt = document.getElementById('userPrompt').value.trim();
+
+      if (!prompt) {
+        showStatus('Please enter a prompt describing what you want to analyze.', 'error');
+        return;
+      }
+
+      // Show loading state
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('status').style.display = 'none';
+      document.getElementById('analyzeBtn').disabled = true;
+
+      // Call the server-side function
+      google.script.run
+        .withSuccessHandler(onAnalysisSuccess)
+        .withFailureHandler(onAnalysisFailure)
+        .analyzeDocument(prompt);
+    }
+
+    function onAnalysisSuccess(result) {
+      // Hide loading state
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('analyzeBtn').disabled = false;
+
+      if (result.success) {
+        var message = result.message || 'Analysis complete!';
+        if (result.analysis) {
+          message += '\n\nAnalysis: ' + result.analysis;
+        }
+        showStatus(message, 'success');
+      } else {
+        showStatus(result.error || 'An error occurred during analysis.', 'error');
+      }
+    }
+
+    function onAnalysisFailure(error) {
+      // Hide loading state
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('analyzeBtn').disabled = false;
+
+      showStatus('Error: ' + error.message, 'error');
+    }
+
+    function clearHighlights() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('status').style.display = 'none';
+
+      google.script.run
+        .withSuccessHandler(onClearSuccess)
+        .withFailureHandler(onClearFailure)
+        .clearHighlights();
+    }
+
+    function onClearSuccess(result) {
+      document.getElementById('loading').style.display = 'none';
+
+      if (result.success) {
+        showStatus(result.message, 'success');
+      } else {
+        showStatus(result.error || 'Failed to clear highlights.', 'error');
+      }
+    }
+
+    function onClearFailure(error) {
+      document.getElementById('loading').style.display = 'none';
+      showStatus('Error: ' + error.message, 'error');
+    }
+
+    function showStatus(message, type) {
+      var statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = 'status ' + type;
+      statusDiv.style.display = 'block';
+    }
+
+    function setPrompt(text) {
+      document.getElementById('userPrompt').value = text;
+    }
+
+    // Allow Enter key to submit (Ctrl+Enter or Cmd+Enter)
+    document.getElementById('userPrompt').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        analyzeDocument();
+      }
+    });
+  </script>
+</body>
+</html>
