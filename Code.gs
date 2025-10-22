@@ -82,15 +82,21 @@ function analyzeDocument(userPrompt) {
 
     // Construct the prompt for Claude
     var systemPrompt = 'You are a document analysis assistant. Your task is to analyze the provided document text based on the user\'s request and identify specific text segments that match their criteria. ' +
-      'Return your response in the following JSON format:\n' +
+      'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
       '{\n' +
       '  "analysis": "Brief summary of what you found",\n' +
       '  "highlights": [\n' +
-      '    {"text": "exact text from document to highlight", "reason": "why this matches the criteria"},\n' +
-      '    ...\n' +
+      '    {"text": "exact text from document to highlight", "reason": "why this matches the criteria"}\n' +
       '  ]\n' +
-      '}\n' +
-      'Only include text segments that exist EXACTLY as written in the document. Be precise with the text matching.';
+      '}\n\n' +
+      'CRITICAL JSON FORMATTING RULES:\n' +
+      '1. Return ONLY the JSON object, nothing else\n' +
+      '2. Properly escape all special characters in strings (quotes, backslashes, newlines)\n' +
+      '3. Use \\\" for quotes inside strings\n' +
+      '4. Use \\\\ for backslashes\n' +
+      '5. Use \\n for newlines within text\n' +
+      '6. Keep text segments short (max 100 characters) to avoid escaping issues\n' +
+      '7. Only include text segments that exist EXACTLY as written in the document';
 
     var userMessage = 'Document text:\n---\n' + documentText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
@@ -203,25 +209,23 @@ function callClaudeAPI(apiKey, systemPrompt, userMessage) {
  */
 function parseClaudeResponse(responseText) {
   try {
-    Logger.log('Raw Claude response: ' + responseText);
+    Logger.log('Raw Claude response (first 500 chars): ' + responseText.substring(0, 500));
 
     var jsonText = null;
 
-    // Try to extract JSON from markdown code blocks first (```json ... ``` or ``` ... ```)
+    // Try to extract JSON from markdown code blocks first
     var codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (codeBlockMatch) {
       jsonText = codeBlockMatch[1];
       Logger.log('Found JSON in code block');
     } else {
-      // Try to find a JSON object directly (use non-greedy match)
-      var jsonMatch = responseText.match(/\{[\s\S]*?\n\s*\}/);
-      if (!jsonMatch) {
-        // Try a simpler pattern if the first one fails
-        jsonMatch = responseText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
-      }
-      if (jsonMatch) {
-        jsonText = jsonMatch[0];
-        Logger.log('Found JSON directly in response');
+      // Try to find a JSON object - look for the first { to last }
+      var firstBrace = responseText.indexOf('{');
+      var lastBrace = responseText.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = responseText.substring(firstBrace, lastBrace + 1);
+        Logger.log('Extracted JSON from position ' + firstBrace + ' to ' + lastBrace);
       }
     }
 
@@ -233,11 +237,26 @@ function parseClaudeResponse(responseText) {
       };
     }
 
-    Logger.log('Attempting to parse JSON: ' + jsonText);
-    var parsedResponse = JSON.parse(jsonText);
+    Logger.log('JSON to parse (first 500 chars): ' + jsonText.substring(0, 500));
+
+    // Try to parse the JSON
+    var parsedResponse;
+    try {
+      parsedResponse = JSON.parse(jsonText);
+    } catch (parseError) {
+      Logger.log('Initial JSON parse failed: ' + parseError.toString());
+      Logger.log('Problematic JSON: ' + jsonText);
+
+      // Try to provide helpful error message
+      return {
+        success: false,
+        error: 'JSON parsing error at position ' + parseError.message.match(/\d+/)?.[0] + '. The AI response contained improperly formatted JSON. Try a simpler prompt or shorter text segments.'
+      };
+    }
 
     if (!parsedResponse.highlights || !Array.isArray(parsedResponse.highlights)) {
       Logger.log('Response missing highlights array');
+      Logger.log('Parsed response: ' + JSON.stringify(parsedResponse));
       return {
         success: false,
         error: 'Invalid response format from Claude - missing highlights array'
@@ -253,10 +272,10 @@ function parseClaudeResponse(responseText) {
 
   } catch (error) {
     Logger.log('Error parsing Claude response: ' + error.toString());
-    Logger.log('Response text was: ' + responseText);
+    Logger.log('Full response: ' + responseText);
     return {
       success: false,
-      error: 'Failed to parse response: ' + error.toString() + '. Check Apps Script logs (View > Logs) for details.'
+      error: 'Failed to parse response: ' + error.toString() + '. Check Apps Script logs (View > Executions) for details.'
     };
   }
 }
