@@ -118,11 +118,18 @@ function analyzeDocument(userPrompt) {
     // Highlight the identified text segments
     var highlightResult = highlightTextSegments(analysisResult.highlights);
 
+    var message = 'Analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s).';
+    if (highlightResult.notFoundCount > 0) {
+      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the document. ' +
+        'Check the execution logs (View > Executions in Apps Script) for details.';
+    }
+
     return {
       success: true,
       analysis: analysisResult.analysis,
       highlightCount: highlightResult.highlightCount,
-      message: 'Analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s).'
+      notFoundCount: highlightResult.notFoundCount,
+      message: message
     };
 
   } catch (error) {
@@ -288,35 +295,74 @@ function highlightTextSegments(highlights) {
   var doc = DocumentApp.getActiveDocument();
   var body = doc.getBody();
   var highlightCount = 0;
+  var notFoundCount = 0;
 
   // Yellow highlight color
   var highlightColor = '#FFFF00';
 
+  Logger.log('=== Starting highlighting process ===');
+  Logger.log('Total segments to highlight: ' + highlights.length);
+
   for (var i = 0; i < highlights.length; i++) {
     var textToHighlight = highlights[i].text;
-    if (!textToHighlight) continue;
+    var reason = highlights[i].reason || 'No reason provided';
+
+    if (!textToHighlight) {
+      Logger.log('Segment ' + (i+1) + ': Empty text, skipping');
+      continue;
+    }
+
+    Logger.log('\n--- Segment ' + (i+1) + ' ---');
+    Logger.log('Text to find: "' + textToHighlight + '"');
+    Logger.log('Reason: ' + reason);
+    Logger.log('Text length: ' + textToHighlight.length + ' characters');
 
     // Search for the text in the document
     var searchResult = body.findText(textToHighlight);
+    var segmentHighlightCount = 0;
 
-    while (searchResult !== null) {
-      var element = searchResult.getElement();
-      var startOffset = searchResult.getStartOffset();
-      var endOffset = searchResult.getEndOffsetInclusive();
+    if (searchResult === null) {
+      Logger.log('Result: NOT FOUND in document');
+      notFoundCount++;
 
-      // Apply yellow background to the found text
-      if (element.asText) {
-        element.asText().setBackgroundColor(startOffset, endOffset, highlightColor);
-        highlightCount++;
+      // Try to provide helpful debugging info
+      if (textToHighlight.includes('\n')) {
+        Logger.log('Note: Text contains newline characters - this may prevent matching');
       }
+      if (textToHighlight.includes('  ')) {
+        Logger.log('Note: Text contains multiple spaces - check spacing in document');
+      }
+      if (textToHighlight.length > 100) {
+        Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars) - try shorter segments');
+      }
+    } else {
+      while (searchResult !== null) {
+        var element = searchResult.getElement();
+        var startOffset = searchResult.getStartOffset();
+        var endOffset = searchResult.getEndOffsetInclusive();
 
-      // Find next occurrence
-      searchResult = body.findText(textToHighlight, searchResult);
+        // Apply yellow background to the found text
+        if (element.asText) {
+          element.asText().setBackgroundColor(startOffset, endOffset, highlightColor);
+          segmentHighlightCount++;
+          highlightCount++;
+        }
+
+        // Find next occurrence
+        searchResult = body.findText(textToHighlight, searchResult);
+      }
+      Logger.log('Result: FOUND and highlighted ' + segmentHighlightCount + ' occurrence(s)');
     }
   }
 
+  Logger.log('\n=== Highlighting Summary ===');
+  Logger.log('Total segments processed: ' + highlights.length);
+  Logger.log('Successfully highlighted: ' + highlightCount + ' occurrence(s)');
+  Logger.log('Not found: ' + notFoundCount + ' segment(s)');
+
   return {
-    highlightCount: highlightCount
+    highlightCount: highlightCount,
+    notFoundCount: notFoundCount
   };
 }
 
