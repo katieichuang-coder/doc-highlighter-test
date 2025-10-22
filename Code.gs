@@ -95,8 +95,7 @@ function analyzeDocument(userPrompt) {
       '3. Use \\\" for quotes inside strings\n' +
       '4. Use \\\\ for backslashes\n' +
       '5. Use \\n for newlines within text\n' +
-      '6. Keep text segments short (max 100 characters) to avoid escaping issues\n' +
-      '7. Only include text segments that exist EXACTLY as written in the document';
+      '6. Only include text segments that exist EXACTLY as written in the document';
 
     var userMessage = 'Document text:\n---\n' + documentText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
