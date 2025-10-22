@@ -5,7 +5,7 @@
 
 // Configuration - You must set your Claude API key in Script Properties
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-3-5-sonnet-20240620';
+const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Creates a custom menu in Google Docs when the document is opened
