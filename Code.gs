@@ -203,24 +203,48 @@ function callClaudeAPI(apiKey, systemPrompt, userMessage) {
  */
 function parseClaudeResponse(responseText) {
   try {
-    // Try to extract JSON from the response
-    var jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    Logger.log('Raw Claude response: ' + responseText);
+
+    var jsonText = null;
+
+    // Try to extract JSON from markdown code blocks first (```json ... ``` or ``` ... ```)
+    var codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+      Logger.log('Found JSON in code block');
+    } else {
+      // Try to find a JSON object directly (use non-greedy match)
+      var jsonMatch = responseText.match(/\{[\s\S]*?\n\s*\}/);
+      if (!jsonMatch) {
+        // Try a simpler pattern if the first one fails
+        jsonMatch = responseText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
+      }
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+        Logger.log('Found JSON directly in response');
+      }
+    }
+
+    if (!jsonText) {
+      Logger.log('Could not find JSON in response');
       return {
         success: false,
-        error: 'Could not parse Claude\'s response. Response: ' + responseText
+        error: 'Could not find JSON in Claude\'s response. Please check the Apps Script logs for the full response.'
       };
     }
 
-    var parsedResponse = JSON.parse(jsonMatch[0]);
+    Logger.log('Attempting to parse JSON: ' + jsonText);
+    var parsedResponse = JSON.parse(jsonText);
 
     if (!parsedResponse.highlights || !Array.isArray(parsedResponse.highlights)) {
+      Logger.log('Response missing highlights array');
       return {
         success: false,
-        error: 'Invalid response format from Claude'
+        error: 'Invalid response format from Claude - missing highlights array'
       };
     }
 
+    Logger.log('Successfully parsed ' + parsedResponse.highlights.length + ' highlights');
     return {
       success: true,
       analysis: parsedResponse.analysis || 'Analysis completed',
@@ -229,9 +253,10 @@ function parseClaudeResponse(responseText) {
 
   } catch (error) {
     Logger.log('Error parsing Claude response: ' + error.toString());
+    Logger.log('Response text was: ' + responseText);
     return {
       success: false,
-      error: 'Failed to parse response: ' + error.toString()
+      error: 'Failed to parse response: ' + error.toString() + '. Check Apps Script logs (View > Logs) for details.'
     };
   }
 }
