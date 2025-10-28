@@ -89,17 +89,25 @@ function analyzeDocument(userPrompt) {
       '    {"text": "exact text from document to highlight", "reason": "why this matches the criteria"}\n' +
       '  ]\n' +
       '}\n\n' +
+      'CRITICAL HIGHLIGHTING RULES:\n' +
+      '1. Extract SHORT, PRECISE text segments (5-10 words maximum)\n' +
+      '2. For sentences: Extract only the KEY PHRASE, not the entire sentence\n' +
+      '3. For single words: Extract just the word\n' +
+      '4. Copy text EXACTLY as it appears - preserve all punctuation, spacing, and capitalization\n' +
+      '5. DO NOT include line breaks or newlines in the text segments\n' +
+      '6. If a sentence spans multiple lines, extract a short phrase from within it\n' +
+      '7. Prefer shorter segments that are easier to match exactly\n\n' +
       'CRITICAL JSON FORMATTING RULES:\n' +
       '1. Return ONLY the JSON object, nothing else\n' +
-      '2. Properly escape all special characters in strings (quotes, backslashes, newlines)\n' +
-      '3. Use \\\" for quotes inside strings\n' +
-      '4. Use \\\\ for backslashes\n' +
-      '5. Use \\n for newlines within text\n' +
-      '6. Only include text segments that exist EXACTLY as written in the document';
+      '2. Properly escape all special characters (use \\\" for quotes, \\\\ for backslashes)\n' +
+      '3. Each "text" value must be a SHORT segment (5-10 words max)\n' +
+      '4. No newlines (\\n) within text segments';
 
     var userMessage = 'Document text:\n---\n' + documentText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
-      'Please analyze the document and identify text segments that match the user\'s request.';
+      'Analyze the document and identify SHORT, PRECISE text segments (5-10 words each) that match the criteria. ' +
+      'Extract key phrases, not entire sentences. Make sure the text matches EXACTLY as it appears in the document.';
+
 
     // Call Claude API
     var response = callClaudeAPI(apiKey, systemPrompt, userMessage);
@@ -323,19 +331,56 @@ function highlightTextSegments(highlights) {
 
     if (searchResult === null) {
       Logger.log('Result: NOT FOUND in document');
-      notFoundCount++;
 
-      // Try to provide helpful debugging info
+      // Try fallback strategies for longer text
+      var foundWithFallback = false;
+
+      // If text contains newlines, try without them
       if (textToHighlight.includes('\n')) {
-        Logger.log('Note: Text contains newline characters - this may prevent matching');
+        Logger.log('Trying fallback: removing newlines');
+        var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        searchResult = body.findText(textWithoutNewlines);
+        if (searchResult !== null) {
+          Logger.log('Fallback successful: found text without newlines');
+          textToHighlight = textWithoutNewlines;
+          foundWithFallback = true;
+        }
       }
-      if (textToHighlight.includes('  ')) {
-        Logger.log('Note: Text contains multiple spaces - check spacing in document');
+
+      // If still not found and text is long, try extracting first meaningful phrase
+      if (!foundWithFallback && textToHighlight.length > 50) {
+        Logger.log('Trying fallback: extracting first 5-7 words');
+        var words = textToHighlight.split(/\s+/);
+        if (words.length > 5) {
+          var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
+          searchResult = body.findText(shortPhrase);
+          if (searchResult !== null) {
+            Logger.log('Fallback successful: found shorter phrase "' + shortPhrase + '"');
+            textToHighlight = shortPhrase;
+            foundWithFallback = true;
+          }
+        }
       }
-      if (textToHighlight.length > 100) {
-        Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars) - try shorter segments');
+
+      if (!foundWithFallback) {
+        Logger.log('All fallback attempts failed - segment not found');
+        notFoundCount++;
+
+        // Log helpful debugging info
+        if (textToHighlight.includes('\n')) {
+          Logger.log('Note: Text contains newline characters');
+        }
+        if (textToHighlight.includes('  ')) {
+          Logger.log('Note: Text contains multiple spaces');
+        }
+        if (textToHighlight.length > 100) {
+          Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
+        }
       }
-    } else {
+    }
+
+    // If we found the text (either direct or fallback), highlight it
+    if (searchResult !== null) {
       while (searchResult !== null) {
         var element = searchResult.getElement();
         var startOffset = searchResult.getStartOffset();
