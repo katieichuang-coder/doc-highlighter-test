@@ -366,17 +366,41 @@ function highlightTextSegments(highlights) {
       // Try fallback strategies
       var foundWithFallback = false;
 
-      // Fallback 1: Try regex pattern that matches any quote/apostrophe variation
-      if (!foundWithFallback && textToHighlight.match(/['`''"" ]/)) {
-        Logger.log('Trying fallback: flexible quote regex pattern');
-        var regexPattern = createFlexibleQuotePattern(textToHighlight);
-        Logger.log('Regex pattern: ' + regexPattern.substring(0, 100));
+      // Fallback 1: If text contains apostrophes/quotes, try different variations
+      if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+        Logger.log('Trying fallback: apostrophe/quote variations');
 
-        searchResult = body.findText(regexPattern);
-        if (searchResult !== null) {
-          Logger.log('✓ Fallback successful: found with flexible quote pattern');
-          foundWithFallback = true;
-          // Note: we don't update textToHighlight here since the regex matched
+        // All possible apostrophe characters
+        var apostropheVariations = [
+          '\u0027', // ' straight apostrophe
+          '\u2019', // ' right single quote (most common in Google Docs)
+          '\u2018', // ' left single quote
+          '\u0060'  // ` backtick
+        ];
+
+        // All possible double quote characters
+        var quoteVariations = [
+          '\u0022', // " straight quote
+          '\u201D', // " right double quote
+          '\u201C'  // " left double quote
+        ];
+
+        // Try all combinations of apostrophe replacements
+        for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+          for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
+            var testText = textToHighlight
+              .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
+              .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
+
+            if (testText !== textToHighlight) {
+              searchResult = body.findText(testText);
+              if (searchResult !== null) {
+                Logger.log('✓ Found with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
+                          ', quote: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+                foundWithFallback = true;
+              }
+            }
+          }
         }
       }
 
@@ -385,19 +409,20 @@ function highlightTextSegments(highlights) {
         Logger.log('Trying fallback: removing newlines');
         var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
-        // First try exact match without newlines
+        // First try exact match
         searchResult = body.findText(textWithoutNewlines);
         if (searchResult !== null) {
-          Logger.log('✓ Fallback successful: found without newlines');
+          Logger.log('✓ Found without newlines');
           foundWithFallback = true;
-        } else if (textWithoutNewlines.match(/['`''"" ]/)) {
-          // Try regex pattern on the newline-removed text
-          Logger.log('Trying fallback: newlines removed + flexible quotes');
-          var regexPattern2 = createFlexibleQuotePattern(textWithoutNewlines);
-          searchResult = body.findText(regexPattern2);
-          if (searchResult !== null) {
-            Logger.log('✓ Fallback successful: newlines removed + flexible quote pattern');
-            foundWithFallback = true;
+        } else if (textWithoutNewlines.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+          // Try apostrophe variations on newline-removed text
+          for (var a2 = 0; a2 < apostropheVariations.length && !foundWithFallback; a2++) {
+            var testText2 = textWithoutNewlines.replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a2]);
+            searchResult = body.findText(testText2);
+            if (searchResult !== null) {
+              Logger.log('✓ Found without newlines + apostrophe variation');
+              foundWithFallback = true;
+            }
           }
         }
       }
@@ -412,15 +437,17 @@ function highlightTextSegments(highlights) {
           // Try exact match
           searchResult = body.findText(shortPhrase);
           if (searchResult !== null) {
-            Logger.log('✓ Fallback successful: found shorter phrase');
+            Logger.log('✓ Found shorter phrase');
             foundWithFallback = true;
-          } else if (shortPhrase.match(/['`''"" ]/)) {
-            // Try with flexible quotes
-            var regexPattern3 = createFlexibleQuotePattern(shortPhrase);
-            searchResult = body.findText(regexPattern3);
-            if (searchResult !== null) {
-              Logger.log('✓ Fallback successful: shorter phrase + flexible quotes');
-              foundWithFallback = true;
+          } else if (shortPhrase.match(/['\u0027\u2018\u2019\u0060]/)) {
+            // Try apostrophe variations
+            for (var a3 = 0; a3 < apostropheVariations.length && !foundWithFallback; a3++) {
+              var testText3 = shortPhrase.replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a3]);
+              searchResult = body.findText(testText3);
+              if (searchResult !== null) {
+                Logger.log('✓ Found shorter phrase + apostrophe variation');
+                foundWithFallback = true;
+              }
             }
           }
         }
