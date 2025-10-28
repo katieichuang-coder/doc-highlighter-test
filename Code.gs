@@ -366,28 +366,56 @@ function highlightTextSegments(highlights) {
       // Try fallback strategies
       var foundWithFallback = false;
 
+      // Define all possible apostrophe and quote variations upfront
+      var apostropheVariations = [
+        '\u0027', // ' straight apostrophe
+        '\u2019', // ' right single quote (most common in Google Docs)
+        '\u2018', // ' left single quote
+        '\u0060'  // ` backtick
+      ];
+
+      var quoteVariations = [
+        '\u0022', // " straight quote
+        '\u201D', // " right double quote
+        '\u201C'  // " left double quote
+      ];
+
       // Fallback 1: If text contains apostrophes/quotes, try different variations
       if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
         Logger.log('Trying fallback: apostrophe/quote variations');
 
-        // All possible apostrophe characters
-        var apostropheVariations = [
-          '\u0027', // ' straight apostrophe
-          '\u2019', // ' right single quote (most common in Google Docs)
-          '\u2018', // ' left single quote
-          '\u0060'  // ` backtick
-        ];
+        // Try apostrophe-only replacements first (most common case)
+        if (textToHighlight.match(/['\u0027\u2018\u2019\u0060]/)) {
+          for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+            var testText = textToHighlight.replace(/['\u0027\u2018\u2019\u0060]/g, apostropheVariations[a]);
+            if (testText !== textToHighlight) {
+              searchResult = body.findText(testText);
+              if (searchResult !== null) {
+                Logger.log('✓ Found with apostrophe only: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase());
+                foundWithFallback = true;
+              }
+            }
+          }
+        }
 
-        // All possible double quote characters
-        var quoteVariations = [
-          '\u0022', // " straight quote
-          '\u201D', // " right double quote
-          '\u201C'  // " left double quote
-        ];
-
-        // Try all combinations of apostrophe replacements
-        for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+        // Try quote-only replacements
+        if (!foundWithFallback && textToHighlight.match(/["\u0022\u201C\u201D]/)) {
           for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
+            var testText = textToHighlight.replace(/["\u0022\u201C\u201D]/g, quoteVariations[q]);
+            if (testText !== textToHighlight) {
+              searchResult = body.findText(testText);
+              if (searchResult !== null) {
+                Logger.log('✓ Found with quote only: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+                foundWithFallback = true;
+              }
+            }
+          }
+        }
+
+        // Try all combinations of apostrophe + quote replacements
+        if (!foundWithFallback) {
+          for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+            for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
             var testText = textToHighlight
               .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
               .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
