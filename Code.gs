@@ -90,13 +90,13 @@ function analyzeDocument(userPrompt) {
       '  ]\n' +
       '}\n\n' +
       'CRITICAL HIGHLIGHTING RULES:\n' +
-      '1. Extract SHORT, PRECISE text segments (5-10 words maximum)\n' +
-      '2. For sentences: Extract only the KEY PHRASE, not the entire sentence\n' +
-      '3. For single words: Extract just the word\n' +
-      '4. Copy text EXACTLY as it appears - preserve all punctuation, spacing, and capitalization\n' +
-      '5. DO NOT include line breaks or newlines in the text segments\n' +
-      '6. If a sentence spans multiple lines, extract a short phrase from within it\n' +
-      '7. Prefer shorter segments that are easier to match exactly\n\n' +
+      '1. For SENTENCES: Extract the FIRST 5-10 words (the beginning of the sentence)\n' +
+      '2. For WORDS: Extract just the individual word\n' +
+      '3. For PHRASES: Extract the exact phrase (up to 10 words)\n' +
+      '4. Always extract from the START/BEGINNING of the identified text, not the middle\n' +
+      '5. Copy text EXACTLY as it appears - preserve all punctuation, spacing, and capitalization\n' +
+      '6. DO NOT include line breaks or newlines in the text segments\n' +
+      '7. Each text segment must be SHORT (5-10 words maximum) for reliable matching\n\n' +
       'CRITICAL JSON FORMATTING RULES:\n' +
       '1. Return ONLY the JSON object, nothing else\n' +
       '2. Properly escape all special characters (use \\\" for quotes, \\\\ for backslashes)\n' +
@@ -105,8 +105,9 @@ function analyzeDocument(userPrompt) {
 
     var userMessage = 'Document text:\n---\n' + documentText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
-      'Analyze the document and identify SHORT, PRECISE text segments (5-10 words each) that match the criteria. ' +
-      'Extract key phrases, not entire sentences. Make sure the text matches EXACTLY as it appears in the document.';
+      'Analyze the document and identify text segments that match the criteria. ' +
+      'For each match, extract the BEGINNING portion (first 5-10 words) so the start is clearly marked. ' +
+      'Make sure the text matches EXACTLY as it appears in the document.';
 
 
     // Call Claude API
