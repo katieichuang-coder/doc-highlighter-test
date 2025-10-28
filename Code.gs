@@ -296,6 +296,26 @@ function parseClaudeResponse(responseText) {
 }
 
 /**
+ * Converts text to a regex pattern that matches any apostrophe/quote variation
+ * @param {string} text - The text to convert
+ * @return {string} Regex pattern
+ */
+function createFlexibleQuotePattern(text) {
+  // First, escape regex special characters (but not quotes yet)
+  var escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Replace any apostrophe/single quote with a pattern that matches all variations
+  // Matches: ' (straight), ' (left), ' (right), ` (backtick)
+  escaped = escaped.replace(/['`'']/g, "['\\\\'\\\\`]");
+
+  // Replace any double quote with a pattern that matches all variations
+  // Matches: " (straight), " (left), " (right)
+  escaped = escaped.replace(/["]/g, '["\\\\"]');
+
+  return escaped;
+}
+
+/**
  * Highlights text segments in the document
  * @param {Array} highlights - Array of highlight objects with 'text' and 'reason' properties
  * @return {Object} Result with highlight count
@@ -331,43 +351,22 @@ function highlightTextSegments(highlights) {
     var segmentHighlightCount = 0;
 
     if (searchResult === null) {
-      Logger.log('Result: NOT FOUND in document');
+      Logger.log('Result: NOT FOUND with exact match');
 
       // Try fallback strategies
       var foundWithFallback = false;
 
-      // Fallback 1: Try multiple apostrophe/quote variations
-      if (!foundWithFallback && (textToHighlight.includes("'") || textToHighlight.includes('"') ||
-          textToHighlight.includes("'") || textToHighlight.includes("'") ||
-          textToHighlight.includes('"') || textToHighlight.includes('"') || textToHighlight.includes('`'))) {
+      // Fallback 1: Try regex pattern that matches any quote/apostrophe variation
+      if (!foundWithFallback && textToHighlight.match(/['`''"" ]/)) {
+        Logger.log('Trying fallback: flexible quote regex pattern');
+        var regexPattern = createFlexibleQuotePattern(textToHighlight);
+        Logger.log('Regex pattern: ' + regexPattern.substring(0, 100));
 
-        Logger.log('Trying fallback: testing multiple apostrophe/quote variations');
-
-        // Generate multiple variations
-        var variations = [
-          // Try all straight quotes
-          textToHighlight.replace(/[''`]/g, "'").replace(/[""]/g, '"'),
-          // Try all right single quotes
-          textToHighlight.replace(/['`]/g, "'").replace(/[""]/g, '"'),
-          // Try all left single quotes
-          textToHighlight.replace(/['`]/g, "'").replace(/[""]/g, '"'),
-          // Try left double quotes
-          textToHighlight.replace(/[''`]/g, "'").replace(/["]/g, '"'),
-          // Try right double quotes
-          textToHighlight.replace(/[''`]/g, "'").replace(/["]/g, '"')
-        ];
-
-        for (var v = 0; v < variations.length; v++) {
-          if (variations[v] !== textToHighlight) {  // Don't retry the original
-            Logger.log('  Trying variation ' + (v+1) + ': "' + variations[v].substring(0, 50) + '..."');
-            searchResult = body.findText(variations[v]);
-            if (searchResult !== null) {
-              Logger.log('  ✓ Fallback successful with variation ' + (v+1));
-              textToHighlight = variations[v];
-              foundWithFallback = true;
-              break;
-            }
-          }
+        searchResult = body.findText(regexPattern);
+        if (searchResult !== null) {
+          Logger.log('✓ Fallback successful: found with flexible quote pattern');
+          foundWithFallback = true;
+          // Note: we don't update textToHighlight here since the regex matched
         }
       }
 
@@ -375,47 +374,44 @@ function highlightTextSegments(highlights) {
       if (!foundWithFallback && textToHighlight.includes('\n')) {
         Logger.log('Trying fallback: removing newlines');
         var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // First try exact match without newlines
         searchResult = body.findText(textWithoutNewlines);
         if (searchResult !== null) {
-          Logger.log('Fallback successful: found text without newlines');
-          textToHighlight = textWithoutNewlines;
+          Logger.log('✓ Fallback successful: found without newlines');
           foundWithFallback = true;
-        }
-      }
-
-      // Fallback 3: Combine newline removal + quote variations
-      if (!foundWithFallback && textToHighlight.replace(/\n/g, ' ').match(/[''`""]/)) {
-        Logger.log('Trying fallback: newline removal + quote variations');
-        var baseText = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-
-        var combinedVariations = [
-          baseText.replace(/[''`]/g, "'").replace(/[""]/g, '"'),
-          baseText.replace(/['`]/g, "'").replace(/[""]/g, '"'),
-          baseText.replace(/['`]/g, "'").replace(/[""]/g, '"')
-        ];
-
-        for (var cv = 0; cv < combinedVariations.length; cv++) {
-          searchResult = body.findText(combinedVariations[cv]);
+        } else if (textWithoutNewlines.match(/['`''"" ]/)) {
+          // Try regex pattern on the newline-removed text
+          Logger.log('Trying fallback: newlines removed + flexible quotes');
+          var regexPattern2 = createFlexibleQuotePattern(textWithoutNewlines);
+          searchResult = body.findText(regexPattern2);
           if (searchResult !== null) {
-            Logger.log('Fallback successful: newline + quote variation ' + (cv+1));
-            textToHighlight = combinedVariations[cv];
+            Logger.log('✓ Fallback successful: newlines removed + flexible quote pattern');
             foundWithFallback = true;
-            break;
           }
         }
       }
 
-      // Fallback 4: If still not found and text is long, try extracting first meaningful phrase
+      // Fallback 3: If still not found and text is long, try extracting first meaningful phrase
       if (!foundWithFallback && textToHighlight.length > 50) {
         Logger.log('Trying fallback: extracting first 5-7 words');
         var words = textToHighlight.split(/\s+/);
         if (words.length > 5) {
           var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
+
+          // Try exact match
           searchResult = body.findText(shortPhrase);
           if (searchResult !== null) {
-            Logger.log('Fallback successful: found shorter phrase');
-            textToHighlight = shortPhrase;
+            Logger.log('✓ Fallback successful: found shorter phrase');
             foundWithFallback = true;
+          } else if (shortPhrase.match(/['`''"" ]/)) {
+            // Try with flexible quotes
+            var regexPattern3 = createFlexibleQuotePattern(shortPhrase);
+            searchResult = body.findText(regexPattern3);
+            if (searchResult !== null) {
+              Logger.log('✓ Fallback successful: shorter phrase + flexible quotes');
+              foundWithFallback = true;
+            }
           }
         }
       }
@@ -424,15 +420,15 @@ function highlightTextSegments(highlights) {
         Logger.log('All fallback attempts failed - segment not found');
         notFoundCount++;
 
-        // Log character codes for debugging
-        if (textToHighlight.includes("'") || textToHighlight.match(/[''`]/)) {
-          Logger.log('Character analysis:');
-          for (var c = 0; c < Math.min(textToHighlight.length, 100); c++) {
-            var char = textToHighlight.charAt(c);
-            if (char === "'" || char === "'" || char === "'" || char === '`') {
-              Logger.log('  Position ' + c + ': "' + char + '" (U+' + textToHighlight.charCodeAt(c).toString(16).toUpperCase() + ')');
-            }
-          }
+        // Log helpful debugging info
+        if (textToHighlight.includes('\n')) {
+          Logger.log('Note: Text contains newline characters');
+        }
+        if (textToHighlight.includes('  ')) {
+          Logger.log('Note: Text contains multiple spaces');
+        }
+        if (textToHighlight.length > 100) {
+          Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
         }
       }
     }
