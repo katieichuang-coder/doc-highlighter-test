@@ -336,8 +336,22 @@ function highlightTextSegments(highlights) {
       // Try fallback strategies for longer text
       var foundWithFallback = false;
 
-      // If text contains newlines, try without them
-      if (textToHighlight.includes('\n')) {
+      // Fallback 1: Try normalizing quotes and apostrophes
+      if (!foundWithFallback && (textToHighlight.includes("'") || textToHighlight.includes('"') || textToHighlight.includes('`'))) {
+        Logger.log('Trying fallback: normalizing quotes and apostrophes');
+        var normalizedText = textToHighlight
+          .replace(/[''`]/g, "'")  // Replace smart single quotes/backticks with straight apostrophe
+          .replace(/[""]/g, '"');  // Replace smart double quotes with straight quotes
+        searchResult = body.findText(normalizedText);
+        if (searchResult !== null) {
+          Logger.log('Fallback successful: found text with normalized quotes');
+          textToHighlight = normalizedText;
+          foundWithFallback = true;
+        }
+      }
+
+      // Fallback 2: If text contains newlines, try without them
+      if (!foundWithFallback && textToHighlight.includes('\n')) {
         Logger.log('Trying fallback: removing newlines');
         var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
         searchResult = body.findText(textWithoutNewlines);
@@ -348,7 +362,24 @@ function highlightTextSegments(highlights) {
         }
       }
 
-      // If still not found and text is long, try extracting first meaningful phrase
+      // Fallback 3: Try normalizing quotes on the newline-removed text
+      if (!foundWithFallback && textToHighlight.replace(/\n/g, ' ').includes("'")) {
+        Logger.log('Trying fallback: removing newlines AND normalizing quotes');
+        var normalizedAndClean = textToHighlight
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/[''`]/g, "'")
+          .replace(/[""]/g, '"');
+        searchResult = body.findText(normalizedAndClean);
+        if (searchResult !== null) {
+          Logger.log('Fallback successful: found with newline removal + quote normalization');
+          textToHighlight = normalizedAndClean;
+          foundWithFallback = true;
+        }
+      }
+
+      // Fallback 4: If still not found and text is long, try extracting first meaningful phrase
       if (!foundWithFallback && textToHighlight.length > 50) {
         Logger.log('Trying fallback: extracting first 5-7 words');
         var words = textToHighlight.split(/\s+/);
@@ -373,6 +404,9 @@ function highlightTextSegments(highlights) {
         }
         if (textToHighlight.includes('  ')) {
           Logger.log('Note: Text contains multiple spaces');
+        }
+        if (textToHighlight.includes("'") || textToHighlight.includes('"')) {
+          Logger.log('Note: Text contains quotes/apostrophes - may be smart quote mismatch');
         }
         if (textToHighlight.length > 100) {
           Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
