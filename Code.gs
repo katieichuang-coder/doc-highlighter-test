@@ -301,18 +301,28 @@ function parseClaudeResponse(responseText) {
  * @return {string} Regex pattern
  */
 function createFlexibleQuotePattern(text) {
-  // First, escape regex special characters (but not quotes yet)
-  var escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Use placeholders to handle quotes, then escape special chars, then restore quote patterns
+  // This uses RE2 regex syntax with Unicode escapes
 
-  // Replace any apostrophe/single quote with a pattern that matches all variations
-  // Matches: ' (straight), ' (left), ' (right), ` (backtick)
-  escaped = escaped.replace(/['`'']/g, "['\\\\'\\\\`]");
+  var SINGLE_QUOTE_PLACEHOLDER = '___SINGLE_QUOTE___';
+  var DOUBLE_QUOTE_PLACEHOLDER = '___DOUBLE_QUOTE___';
 
-  // Replace any double quote with a pattern that matches all variations
-  // Matches: " (straight), " (left), " (right)
-  escaped = escaped.replace(/["]/g, '["\\\\"]');
+  var pattern = text;
 
-  return escaped;
+  // Step 1: Replace all quote variations with placeholders
+  // Apostrophes: \u0027 ('), \u2018 ('), \u2019 ('), \u0060 (`)
+  pattern = pattern.replace(/[\u0027\u2018\u2019\u0060]/g, SINGLE_QUOTE_PLACEHOLDER);
+  // Double quotes: \u0022 ("), \u201C ("), \u201D (")
+  pattern = pattern.replace(/[\u0022\u201C\u201D]/g, DOUBLE_QUOTE_PLACEHOLDER);
+
+  // Step 2: Escape regex special characters (now quotes are safe as placeholders)
+  pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
+
+  // Step 3: Replace placeholders with character classes that match any quote variation
+  pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'), '[\u0027\u2018\u2019\u0060]');
+  pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'), '[\u0022\u201C\u201D]');
+
+  return pattern;
 }
 
 /**
