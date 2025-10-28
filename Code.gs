@@ -333,20 +333,41 @@ function highlightTextSegments(highlights) {
     if (searchResult === null) {
       Logger.log('Result: NOT FOUND in document');
 
-      // Try fallback strategies for longer text
+      // Try fallback strategies
       var foundWithFallback = false;
 
-      // Fallback 1: Try normalizing quotes and apostrophes
-      if (!foundWithFallback && (textToHighlight.includes("'") || textToHighlight.includes('"') || textToHighlight.includes('`'))) {
-        Logger.log('Trying fallback: normalizing quotes and apostrophes');
-        var normalizedText = textToHighlight
-          .replace(/[''`]/g, "'")  // Replace smart single quotes/backticks with straight apostrophe
-          .replace(/[""]/g, '"');  // Replace smart double quotes with straight quotes
-        searchResult = body.findText(normalizedText);
-        if (searchResult !== null) {
-          Logger.log('Fallback successful: found text with normalized quotes');
-          textToHighlight = normalizedText;
-          foundWithFallback = true;
+      // Fallback 1: Try multiple apostrophe/quote variations
+      if (!foundWithFallback && (textToHighlight.includes("'") || textToHighlight.includes('"') ||
+          textToHighlight.includes("'") || textToHighlight.includes("'") ||
+          textToHighlight.includes('"') || textToHighlight.includes('"') || textToHighlight.includes('`'))) {
+
+        Logger.log('Trying fallback: testing multiple apostrophe/quote variations');
+
+        // Generate multiple variations
+        var variations = [
+          // Try all straight quotes
+          textToHighlight.replace(/[''`]/g, "'").replace(/[""]/g, '"'),
+          // Try all right single quotes
+          textToHighlight.replace(/['`]/g, "'").replace(/[""]/g, '"'),
+          // Try all left single quotes
+          textToHighlight.replace(/['`]/g, "'").replace(/[""]/g, '"'),
+          // Try left double quotes
+          textToHighlight.replace(/[''`]/g, "'").replace(/["]/g, '"'),
+          // Try right double quotes
+          textToHighlight.replace(/[''`]/g, "'").replace(/["]/g, '"')
+        ];
+
+        for (var v = 0; v < variations.length; v++) {
+          if (variations[v] !== textToHighlight) {  // Don't retry the original
+            Logger.log('  Trying variation ' + (v+1) + ': "' + variations[v].substring(0, 50) + '..."');
+            searchResult = body.findText(variations[v]);
+            if (searchResult !== null) {
+              Logger.log('  ✓ Fallback successful with variation ' + (v+1));
+              textToHighlight = variations[v];
+              foundWithFallback = true;
+              break;
+            }
+          }
         }
       }
 
@@ -362,20 +383,25 @@ function highlightTextSegments(highlights) {
         }
       }
 
-      // Fallback 3: Try normalizing quotes on the newline-removed text
-      if (!foundWithFallback && textToHighlight.replace(/\n/g, ' ').includes("'")) {
-        Logger.log('Trying fallback: removing newlines AND normalizing quotes');
-        var normalizedAndClean = textToHighlight
-          .replace(/\n/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .replace(/[''`]/g, "'")
-          .replace(/[""]/g, '"');
-        searchResult = body.findText(normalizedAndClean);
-        if (searchResult !== null) {
-          Logger.log('Fallback successful: found with newline removal + quote normalization');
-          textToHighlight = normalizedAndClean;
-          foundWithFallback = true;
+      // Fallback 3: Combine newline removal + quote variations
+      if (!foundWithFallback && textToHighlight.replace(/\n/g, ' ').match(/[''`""]/)) {
+        Logger.log('Trying fallback: newline removal + quote variations');
+        var baseText = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+        var combinedVariations = [
+          baseText.replace(/[''`]/g, "'").replace(/[""]/g, '"'),
+          baseText.replace(/['`]/g, "'").replace(/[""]/g, '"'),
+          baseText.replace(/['`]/g, "'").replace(/[""]/g, '"')
+        ];
+
+        for (var cv = 0; cv < combinedVariations.length; cv++) {
+          searchResult = body.findText(combinedVariations[cv]);
+          if (searchResult !== null) {
+            Logger.log('Fallback successful: newline + quote variation ' + (cv+1));
+            textToHighlight = combinedVariations[cv];
+            foundWithFallback = true;
+            break;
+          }
         }
       }
 
@@ -387,7 +413,7 @@ function highlightTextSegments(highlights) {
           var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
           searchResult = body.findText(shortPhrase);
           if (searchResult !== null) {
-            Logger.log('Fallback successful: found shorter phrase "' + shortPhrase + '"');
+            Logger.log('Fallback successful: found shorter phrase');
             textToHighlight = shortPhrase;
             foundWithFallback = true;
           }
@@ -398,18 +424,15 @@ function highlightTextSegments(highlights) {
         Logger.log('All fallback attempts failed - segment not found');
         notFoundCount++;
 
-        // Log helpful debugging info
-        if (textToHighlight.includes('\n')) {
-          Logger.log('Note: Text contains newline characters');
-        }
-        if (textToHighlight.includes('  ')) {
-          Logger.log('Note: Text contains multiple spaces');
-        }
-        if (textToHighlight.includes("'") || textToHighlight.includes('"')) {
-          Logger.log('Note: Text contains quotes/apostrophes - may be smart quote mismatch');
-        }
-        if (textToHighlight.length > 100) {
-          Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
+        // Log character codes for debugging
+        if (textToHighlight.includes("'") || textToHighlight.match(/[''`]/)) {
+          Logger.log('Character analysis:');
+          for (var c = 0; c < Math.min(textToHighlight.length, 100); c++) {
+            var char = textToHighlight.charAt(c);
+            if (char === "'" || char === "'" || char === "'" || char === '`') {
+              Logger.log('  Position ' + c + ': "' + char + '" (U+' + textToHighlight.charCodeAt(c).toString(16).toUpperCase() + ')');
+            }
+          }
         }
       }
     }
