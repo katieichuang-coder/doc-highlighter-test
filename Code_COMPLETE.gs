@@ -296,6 +296,38 @@ function parseClaudeResponse(responseText) {
 }
 
 /**
+ * Converts text to a regex pattern with flexible punctuation matching
+ * Quotes/apostrophes will match any variation, and other punctuation is flexible
+ * @param {string} text - The text to convert
+ * @return {string} Regex pattern
+ */
+function createFlexiblePunctuationPattern(text) {
+  // Use placeholders to handle quotes, then escape special chars, then restore quote patterns
+  // This uses RE2 regex syntax with Unicode escapes
+
+  var SINGLE_QUOTE_PLACEHOLDER = '___SINGLE_QUOTE___';
+  var DOUBLE_QUOTE_PLACEHOLDER = '___DOUBLE_QUOTE___';
+
+  var pattern = text;
+
+  // Step 1: Replace all quote variations with placeholders
+  // Apostrophes: \u0027 ('), \u2018 ('), \u2019 ('), \u0060 (`)
+  pattern = pattern.replace(/[\u0027\u2018\u2019\u0060]/g, SINGLE_QUOTE_PLACEHOLDER);
+  // Double quotes: \u0022 ("), \u201C ("), \u201D (")
+  pattern = pattern.replace(/[\u0022\u201C\u201D]/g, DOUBLE_QUOTE_PLACEHOLDER);
+
+  // Step 2: Escape regex special characters (now quotes are safe as placeholders)
+  pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Step 3: Replace placeholders with flexible character classes
+  // These match any quote variation (the character is required but can be any variation)
+  pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'), '[\'\\u0027\\u2018\\u2019\\u0060]');
+  pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'), '[\"\\u0022\\u201C\\u201D]');
+
+  return pattern;
+}
+
+/**
  * Replaces apostrophes in text with paired opening/closing apostrophes
  * @param {string} text - The text to modify
  * @param {string} openApostrophe - The opening apostrophe character
@@ -639,9 +671,37 @@ function highlightTextSegments(highlights) {
         }
       }
 
+      // Fallback 4: Try flexible regex pattern (quotes match any variation)
+      if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+        Logger.log('Trying fallback: flexible regex pattern');
+        try {
+          var regexPattern = createFlexiblePunctuationPattern(textToHighlight);
+          Logger.log('  Regex pattern: ' + regexPattern.substring(0, 100) + (regexPattern.length > 100 ? '...' : ''));
+
+          searchResult = body.findText(regexPattern);
+          if (searchResult !== null) {
+            Logger.log('✓ Found with flexible regex pattern');
+            foundWithFallback = true;
+          }
+        } catch (regexError) {
+          Logger.log('  Regex pattern failed: ' + regexError.toString());
+        }
+      }
+
       if (!foundWithFallback) {
         Logger.log('All fallback attempts failed - segment not found');
         notFoundCount++;
+
+        // Log helpful debugging info
+        if (textToHighlight.includes('\n')) {
+          Logger.log('Note: Text contains newline characters');
+        }
+        if (textToHighlight.includes('  ')) {
+          Logger.log('Note: Text contains multiple spaces');
+        }
+        if (textToHighlight.length > 100) {
+          Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
+        }
       }
     }
 
