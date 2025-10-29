@@ -296,6 +296,54 @@ function parseClaudeResponse(responseText) {
 }
 
 /**
+ * Replaces apostrophes in text with paired opening/closing apostrophes
+ * @param {string} text - The text to modify
+ * @param {string} openApostrophe - The opening apostrophe character
+ * @param {string} closeApostrophe - The closing apostrophe character
+ * @return {string} Modified text
+ */
+function replaceWithPairedApostrophes(text, openApostrophe, closeApostrophe) {
+  var apostropheToggle = true;  // true = next apostrophe is opening
+  var newText = '';
+
+  for (var i = 0; i < text.length; i++) {
+    var char = text.charAt(i);
+    // Match any apostrophe or single quote character
+    if (char.match(/['\u0027\u2018\u2019\u0060]/)) {
+      newText += apostropheToggle ? openApostrophe : closeApostrophe;
+      apostropheToggle = !apostropheToggle;  // Toggle for next apostrophe
+    } else {
+      newText += char;
+    }
+  }
+  return newText;
+}
+
+/**
+ * Replaces double quotes in text with paired opening/closing quotes
+ * @param {string} text - The text to modify
+ * @param {string} openQuote - The opening quote character
+ * @param {string} closeQuote - The closing quote character
+ * @return {string} Modified text
+ */
+function replaceWithPairedQuotes(text, openQuote, closeQuote) {
+  var quoteToggle = true;  // true = next quote is opening
+  var newText = '';
+
+  for (var i = 0; i < text.length; i++) {
+    var char = text.charAt(i);
+    // Match any double quote character
+    if (char.match(/["\u0022\u201C\u201D]/)) {
+      newText += quoteToggle ? openQuote : closeQuote;
+      quoteToggle = !quoteToggle;  // Toggle for next quote
+    } else {
+      newText += char;
+    }
+  }
+  return newText;
+}
+
+/**
  * Highlights text segments in the document
  * @param {Array} highlights - Array of highlight objects with 'text' and 'reason' properties
  * @return {Object} Result with highlight count
@@ -344,13 +392,16 @@ function highlightTextSegments(highlights) {
         '\u0060'  // ` backtick
       ];
 
-      var quoteVariations = [
-        '\u0022', // " straight quote
-        '\u201D', // " right double quote
-        '\u201C'  // " left double quote
+      // For paired single quotes/apostrophes (opening and closing different)
+      var apostrophePairs = [
+        {open: '\u0027', close: '\u0027'},  // 'text'
+        {open: '\u2018', close: '\u2019'},  // 'text'  ← Most common in Google Docs!
+        {open: '\u2019', close: '\u2018'},  // 'text' (reversed)
+        {open: '\u2018', close: '\u2018'},  // 'text' (both left)
+        {open: '\u2019', close: '\u2019'}   // 'text' (both right)
       ];
 
-      // For paired quotes (opening and closing different)
+      // For paired double quotes (opening and closing different)
       var quotePairs = [
         {open: '\u0022', close: '\u0022'},  // "text"
         {open: '\u201C', close: '\u201D'},  // "text"  ← Most common in Google Docs!
@@ -359,9 +410,9 @@ function highlightTextSegments(highlights) {
         {open: '\u201D', close: '\u201D'}   // "text" (both right)
       ];
 
-      // Fallback 1: Try all combinations with PAIRED quotes
-      if (!foundWithFallback) {
-        Logger.log('Trying fallback: exhaustive apostrophe/quote combinations (with paired quotes)');
+      // Fallback 1: If text contains apostrophes/quotes, try different variations
+      if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+        Logger.log('Trying fallback: apostrophe/quote variations');
 
         // Log character codes in original text for debugging
         var charCodes = '';
@@ -375,93 +426,213 @@ function highlightTextSegments(highlights) {
           Logger.log('Quote characters found in text:' + charCodes);
         }
 
-        // Helper function to replace quotes with paired variations
-        function replaceWithPairedQuotes(text, openQuote, closeQuote) {
-          var result = text;
-          var quoteToggle = true;  // true = next quote is opening
-          var newText = '';
+        var quoteVariations = [
+          '\u0022', // " straight quote
+          '\u201D', // " right double quote
+          '\u201C'  // " left double quote
+        ];
 
-          for (var i = 0; i < result.length; i++) {
-            var char = result.charAt(i);
-            // Check if it's any type of double quote
-            if (char.match(/["\u0022\u201C\u201D]/)) {
-              newText += quoteToggle ? openQuote : closeQuote;
-              quoteToggle = !quoteToggle;  // Toggle for next quote
-            } else {
-              newText += char;
-            }
-          }
-          return newText;
-        }
-
-        // Try every combination of apostrophe and quote pair replacements
-        var attemptNum = 0;
-        for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
-          for (var qp = 0; qp < quotePairs.length && !foundWithFallback; qp++) {
-            attemptNum++;
-
-            // First replace apostrophes
-            var testText = textToHighlight.replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a]);
-            // Then replace quotes with paired quotes
-            testText = replaceWithPairedQuotes(testText, quotePairs[qp].open, quotePairs[qp].close);
-
-            Logger.log('  Attempt ' + attemptNum + ': apostrophe=U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
-                      ', quotes=' + quotePairs[qp].open.charCodeAt(0).toString(16).toUpperCase() + '/' +
-                      quotePairs[qp].close.charCodeAt(0).toString(16).toUpperCase());
-            Logger.log('    Searching for: "' + testText.substring(0, 50) + (testText.length > 50 ? '...' : '') + '"');
-
-            searchResult = body.findText(testText);
-            if (searchResult !== null) {
-              Logger.log('✓✓✓ MATCH FOUND with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
-                        ', quote pair: ' + quotePairs[qp].open.charCodeAt(0).toString(16).toUpperCase() + '/' +
-                        quotePairs[qp].close.charCodeAt(0).toString(16).toUpperCase());
-              foundWithFallback = true;
+        // Try apostrophe-only replacements first (most common case)
+        if (textToHighlight.match(/['\u0027\u2018\u2019\u0060]/)) {
+          for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+            var testText = textToHighlight.replace(/['\u0027\u2018\u2019\u0060]/g, apostropheVariations[a]);
+            if (testText !== textToHighlight) {
+              searchResult = body.findText(testText);
+              if (searchResult !== null) {
+                Logger.log('✓ Found with apostrophe only: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase());
+                foundWithFallback = true;
+              }
             }
           }
         }
 
+        // Try quote-only replacements
+        if (!foundWithFallback && textToHighlight.match(/["\u0022\u201C\u201D]/)) {
+          for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
+            var testText = textToHighlight.replace(/["\u0022\u201C\u201D]/g, quoteVariations[q]);
+            if (testText !== textToHighlight) {
+              searchResult = body.findText(testText);
+              if (searchResult !== null) {
+                Logger.log('✓ Found with quote only: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+                foundWithFallback = true;
+              }
+            }
+          }
+        }
+
+        // Try all combinations of apostrophe + quote replacements (simple replacement)
         if (!foundWithFallback) {
-          Logger.log('  All ' + attemptNum + ' combinations failed');
+          for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
+            for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
+              var testText = textToHighlight
+                .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
+                .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
+
+              if (testText !== textToHighlight) {
+                searchResult = body.findText(testText);
+                if (searchResult !== null) {
+                  Logger.log('✓ Found with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
+                            ', quote: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+                  foundWithFallback = true;
+                }
+              }
+            }
+          }
+        }
+
+        // Try PAIRED apostrophe and quote combinations (opening/closing different)
+        // This handles Google Docs' smart quotes: 'text' and "text"
+        if (!foundWithFallback) {
+          Logger.log('Trying fallback: paired apostrophe/quote combinations');
+          var attemptNum = 0;
+
+          for (var ap = 0; ap < apostrophePairs.length && !foundWithFallback; ap++) {
+            for (var qp = 0; qp < quotePairs.length && !foundWithFallback; qp++) {
+              attemptNum++;
+              var testText = textToHighlight;
+
+              // Apply paired apostrophe replacement if text contains apostrophes
+              if (testText.match(/['\u0027\u2018\u2019\u0060]/)) {
+                testText = replaceWithPairedApostrophes(testText,
+                  apostrophePairs[ap].open,
+                  apostrophePairs[ap].close);
+              }
+
+              // Apply paired quote replacement if text contains double quotes
+              if (testText.match(/["\u0022\u201C\u201D]/)) {
+                testText = replaceWithPairedQuotes(testText,
+                  quotePairs[qp].open,
+                  quotePairs[qp].close);
+              }
+
+              Logger.log('  Attempt ' + attemptNum + ': apostrophe pair=' +
+                        apostrophePairs[ap].open.charCodeAt(0).toString(16).toUpperCase() + '/' +
+                        apostrophePairs[ap].close.charCodeAt(0).toString(16).toUpperCase() +
+                        ', quote pair=' + quotePairs[qp].open.charCodeAt(0).toString(16).toUpperCase() + '/' +
+                        quotePairs[qp].close.charCodeAt(0).toString(16).toUpperCase());
+              Logger.log('    Searching for: "' + testText.substring(0, 50) + (testText.length > 50 ? '...' : '') + '"');
+
+              if (testText !== textToHighlight) {
+                searchResult = body.findText(testText);
+                if (searchResult !== null) {
+                  Logger.log('✓ Found with PAIRED quotes (Attempt ' + attemptNum + '): ' +
+                            'apostrophe ' + apostrophePairs[ap].open.charCodeAt(0).toString(16).toUpperCase() +
+                            '/' + apostrophePairs[ap].close.charCodeAt(0).toString(16).toUpperCase() +
+                            ', quote ' + quotePairs[qp].open.charCodeAt(0).toString(16).toUpperCase() +
+                            '/' + quotePairs[qp].close.charCodeAt(0).toString(16).toUpperCase());
+                  foundWithFallback = true;
+                }
+              }
+            }
+          }
+
+          if (!foundWithFallback) {
+            Logger.log('All ' + attemptNum + ' paired combinations failed');
+          }
         }
       }
 
-      // Fallback 2: If text contains newlines, try without them + all quote combinations
+      // Fallback 2: If text contains newlines, try without them
       if (!foundWithFallback && textToHighlight.includes('\n')) {
-        Logger.log('Trying fallback: removing newlines + quote combinations');
+        Logger.log('Trying fallback: removing newlines');
         var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
-        for (var a2 = 0; a2 < apostropheVariations.length && !foundWithFallback; a2++) {
-          for (var q2 = 0; q2 < quoteVariations.length && !foundWithFallback; q2++) {
-            var testText2 = textWithoutNewlines
-              .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a2])
-              .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q2]);
-
+        // First try exact match
+        searchResult = body.findText(textWithoutNewlines);
+        if (searchResult !== null) {
+          Logger.log('✓ Found without newlines');
+          foundWithFallback = true;
+        } else if (textWithoutNewlines.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+          // Try apostrophe variations on newline-removed text
+          for (var a2 = 0; a2 < apostropheVariations.length && !foundWithFallback; a2++) {
+            var testText2 = textWithoutNewlines.replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a2]);
             searchResult = body.findText(testText2);
             if (searchResult !== null) {
-              Logger.log('✓ Found without newlines + quotes');
+              Logger.log('✓ Found without newlines + apostrophe variation');
               foundWithFallback = true;
+            }
+          }
+
+          // Also try paired quotes on newline-removed text
+          if (!foundWithFallback) {
+            for (var ap2 = 0; ap2 < apostrophePairs.length && !foundWithFallback; ap2++) {
+              for (var qp2 = 0; qp2 < quotePairs.length && !foundWithFallback; qp2++) {
+                var testText2 = textWithoutNewlines;
+
+                if (testText2.match(/['\u0027\u2018\u2019\u0060]/)) {
+                  testText2 = replaceWithPairedApostrophes(testText2,
+                    apostrophePairs[ap2].open,
+                    apostrophePairs[ap2].close);
+                }
+
+                if (testText2.match(/["\u0022\u201C\u201D]/)) {
+                  testText2 = replaceWithPairedQuotes(testText2,
+                    quotePairs[qp2].open,
+                    quotePairs[qp2].close);
+                }
+
+                if (testText2 !== textWithoutNewlines) {
+                  searchResult = body.findText(testText2);
+                  if (searchResult !== null) {
+                    Logger.log('✓ Found without newlines + paired quotes');
+                    foundWithFallback = true;
+                  }
+                }
+              }
             }
           }
         }
       }
 
-      // Fallback 3: If still not found and text is long, try first 5-7 words + all combinations
+      // Fallback 3: If still not found and text is long, try extracting first meaningful phrase
       if (!foundWithFallback && textToHighlight.length > 50) {
-        Logger.log('Trying fallback: first 5-7 words + quote combinations');
+        Logger.log('Trying fallback: extracting first 5-7 words');
         var words = textToHighlight.split(/\s+/);
         if (words.length > 5) {
           var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
 
-          for (var a3 = 0; a3 < apostropheVariations.length && !foundWithFallback; a3++) {
-            for (var q3 = 0; q3 < quoteVariations.length && !foundWithFallback; q3++) {
-              var testText3 = shortPhrase
-                .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a3])
-                .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q3]);
-
+          // Try exact match
+          searchResult = body.findText(shortPhrase);
+          if (searchResult !== null) {
+            Logger.log('✓ Found shorter phrase');
+            foundWithFallback = true;
+          } else if (shortPhrase.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+            // Try apostrophe variations
+            for (var a3 = 0; a3 < apostropheVariations.length && !foundWithFallback; a3++) {
+              var testText3 = shortPhrase.replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a3]);
               searchResult = body.findText(testText3);
               if (searchResult !== null) {
-                Logger.log('✓ Found shorter phrase + quotes');
+                Logger.log('✓ Found shorter phrase + apostrophe variation');
                 foundWithFallback = true;
+              }
+            }
+
+            // Also try paired quotes on shorter phrase
+            if (!foundWithFallback) {
+              for (var ap3 = 0; ap3 < apostrophePairs.length && !foundWithFallback; ap3++) {
+                for (var qp3 = 0; qp3 < quotePairs.length && !foundWithFallback; qp3++) {
+                  var testText3 = shortPhrase;
+
+                  if (testText3.match(/['\u0027\u2018\u2019\u0060]/)) {
+                    testText3 = replaceWithPairedApostrophes(testText3,
+                      apostrophePairs[ap3].open,
+                      apostrophePairs[ap3].close);
+                  }
+
+                  if (testText3.match(/["\u0022\u201C\u201D]/)) {
+                    testText3 = replaceWithPairedQuotes(testText3,
+                      quotePairs[qp3].open,
+                      quotePairs[qp3].close);
+                  }
+
+                  if (testText3 !== shortPhrase) {
+                    searchResult = body.findText(testText3);
+                    if (searchResult !== null) {
+                      Logger.log('✓ Found shorter phrase + paired quotes');
+                      foundWithFallback = true;
+                    }
+                  }
+                }
               }
             }
           }
