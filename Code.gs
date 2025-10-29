@@ -416,16 +416,17 @@ function highlightTextSegments(highlights) {
         if (!foundWithFallback) {
           for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
             for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
-            var testText = textToHighlight
-              .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
-              .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
+              var testText = textToHighlight
+                .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
+                .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
 
-            if (testText !== textToHighlight) {
-              searchResult = body.findText(testText);
-              if (searchResult !== null) {
-                Logger.log('✓ Found with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
-                          ', quote: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
-                foundWithFallback = true;
+              if (testText !== textToHighlight) {
+                searchResult = body.findText(testText);
+                if (searchResult !== null) {
+                  Logger.log('✓ Found with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
+                            ', quote: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+                  foundWithFallback = true;
+                }
               }
             }
           }
