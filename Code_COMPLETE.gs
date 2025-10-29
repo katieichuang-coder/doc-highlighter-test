@@ -354,20 +354,42 @@ function highlightTextSegments(highlights) {
       if (!foundWithFallback) {
         Logger.log('Trying fallback: exhaustive apostrophe/quote combinations');
 
+        // Log character codes in original text for debugging
+        var charCodes = '';
+        for (var c = 0; c < Math.min(textToHighlight.length, 50); c++) {
+          var char = textToHighlight.charAt(c);
+          if (char.match(/['"''""\u0027\u2018\u2019\u0060\u0022\u201C\u201D]/)) {
+            charCodes += '\n  [' + c + '] "' + char + '" = U+' + textToHighlight.charCodeAt(c).toString(16).toUpperCase();
+          }
+        }
+        if (charCodes) {
+          Logger.log('Quote characters found in text:' + charCodes);
+        }
+
         // Try every combination of apostrophe and quote replacements
+        var attemptNum = 0;
         for (var a = 0; a < apostropheVariations.length && !foundWithFallback; a++) {
           for (var q = 0; q < quoteVariations.length && !foundWithFallback; q++) {
+            attemptNum++;
             var testText = textToHighlight
               .replace(/[\u0027\u2018\u2019\u0060]/g, apostropheVariations[a])
               .replace(/[\u0022\u201C\u201D]/g, quoteVariations[q]);
 
+            Logger.log('  Attempt ' + attemptNum + ': apostrophe=U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
+                      ', quote=U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
+            Logger.log('    Searching for: "' + testText.substring(0, 50) + (testText.length > 50 ? '...' : '') + '"');
+
             searchResult = body.findText(testText);
             if (searchResult !== null) {
-              Logger.log('✓ Found with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
+              Logger.log('✓✓✓ MATCH FOUND with apostrophe: U+' + apostropheVariations[a].charCodeAt(0).toString(16).toUpperCase() +
                         ', quote: U+' + quoteVariations[q].charCodeAt(0).toString(16).toUpperCase());
               foundWithFallback = true;
             }
           }
+        }
+
+        if (!foundWithFallback) {
+          Logger.log('  All ' + attemptNum + ' combinations failed');
         }
       }
 
