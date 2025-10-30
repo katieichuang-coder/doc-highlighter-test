@@ -323,9 +323,9 @@ function createFlexiblePunctuationPattern(text) {
   // RE2 requires \x{...} syntax for Unicode, not \u
   // These match any quote variation (the character is required but can be any variation)
   pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\'\\x{0027}\\x{2018}\\x{2019}\\x{0060}]');
+    '[\\x{0027}\\x{2018}\\x{2019}\\x{0060}]');
   pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\"\\x{0022}\\x{201C}\\x{201D}]');
+    '[\\x{0022}\\x{201C}\\x{201D}]');
 
   return pattern;
 }
