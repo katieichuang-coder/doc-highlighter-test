@@ -320,12 +320,13 @@ function createFlexiblePunctuationPattern(text) {
   pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Step 3: Replace placeholders with flexible character classes
-  // Use JavaScript regex \u syntax for Unicode
+  // Use actual Unicode characters in the character class (single backslash so JavaScript
+  // interprets them at string creation time, not regex runtime)
   // These match any quote variation (the character is required but can be any variation)
   pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\\u0027\\u2018\\u2019\\u0060]');
+    '[\u0027\u2018\u2019\u0060]');  // Single \ means actual characters: ['`]
   pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\\u0022\\u201C\\u201D]');
+    '[\u0022\u201C\u201D]');  // Single \ means actual characters: [""]
 
   return pattern;
 }
