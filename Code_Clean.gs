@@ -494,16 +494,23 @@ function clearHighlights() {
   try {
     var doc = DocumentApp.getActiveDocument();
     var body = doc.getBody();
-    var text = body.editAsText();
+    var bodyText = body.editAsText();
+    var textLength = bodyText.getText().length;
 
-    // Reset background color for entire document
-    text.setBackgroundColor(null);
+    Logger.log('Clearing highlights from document (length: ' + textLength + ')');
+
+    // Clear background color for the entire document range
+    if (textLength > 0) {
+      bodyText.setBackgroundColor(0, textLength - 1, null);
+      Logger.log('Successfully cleared highlights');
+    }
 
     return {
       success: true,
       message: 'All highlights cleared!'
     };
   } catch (error) {
+    Logger.log('Error clearing highlights: ' + error.toString());
     return {
       success: false,
       error: 'Failed to clear highlights: ' + error.toString()
