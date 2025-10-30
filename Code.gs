@@ -303,7 +303,7 @@ function parseClaudeResponse(responseText) {
  */
 function createFlexiblePunctuationPattern(text) {
   // Use placeholders to handle quotes, then escape special chars, then restore quote patterns
-  // This uses RE2 regex syntax with \x{...} for Unicode (NOT \u which doesn't work in RE2)
+  // This uses JavaScript regex syntax with \u for Unicode escapes
 
   var SINGLE_QUOTE_PLACEHOLDER = '___SINGLE_QUOTE___';
   var DOUBLE_QUOTE_PLACEHOLDER = '___DOUBLE_QUOTE___';
@@ -320,12 +320,12 @@ function createFlexiblePunctuationPattern(text) {
   pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Step 3: Replace placeholders with flexible character classes
-  // RE2 requires \x{...} syntax for Unicode, not \u
+  // Use JavaScript regex \u syntax for Unicode
   // These match any quote variation (the character is required but can be any variation)
   pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\\x{0027}\\x{2018}\\x{2019}\\x{0060}]');
+    '[\\u0027\\u2018\\u2019\\u0060]');
   pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'),
-    '[\\x{0022}\\x{201C}\\x{201D}]');
+    '[\\u0022\\u201C\\u201D]');
 
   return pattern;
 }
