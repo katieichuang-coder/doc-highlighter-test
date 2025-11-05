@@ -23,6 +23,43 @@
       font-size: 18px;
     }
 
+    /* Tab styles */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e8eaed;
+    }
+
+    .tab {
+      padding: 10px 16px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #4285f4;
+    }
+
+    .tab.active {
+      color: #4285f4;
+      border-bottom-color: #4285f4;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
     label {
       display: block;
       margin-bottom: 8px;
@@ -31,19 +68,22 @@
       font-size: 14px;
     }
 
-    textarea {
+    input[type="text"], textarea, select {
       width: 100%;
-      min-height: 120px;
       padding: 10px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-family: Arial, sans-serif;
       font-size: 14px;
       box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 120px;
       resize: vertical;
     }
 
-    textarea:focus {
+    input[type="text"]:focus, textarea:focus, select:focus {
       outline: none;
       border-color: #4285f4;
     }
@@ -86,6 +126,75 @@
 
     .secondary-button:hover {
       background-color: #e8eaed;
+    }
+
+    /* Rubric-specific styles */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .criteria-list {
+      margin-top: 12px;
+      padding: 12px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .criteria-list.visible {
+      display: block;
+    }
+
+    .criterion-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .criterion-item input[type="checkbox"] {
+      width: auto;
+      margin-right: 8px;
+    }
+
+    .criterion-item label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+    }
+
+    .legend {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .legend.visible {
+      display: block;
+    }
+
+    .legend h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      margin-right: 8px;
+      border: 1px solid #ddd;
     }
 
     .status {
@@ -163,40 +272,123 @@
     .examples li:hover {
       color: #4285f4;
     }
+
+    .help-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .small-button {
+      flex: none;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Analyze Document with Claude AI</h2>
 
-    <label for="userPrompt">What would you like Claude to analyze?</label>
-    <textarea id="userPrompt" placeholder="Example: Highlight all instances where passive voice is used"></textarea>
-
-    <div class="button-group">
-      <button class="primary-button" id="analyzeBtn" onclick="analyzeDocument()">Analyze</button>
-      <button class="secondary-button" onclick="clearHighlights()">Clear Highlights</button>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('text-prompt')">Text Prompt</button>
+      <button class="tab" onclick="switchTab('rubric-mode')">Rubric Mode</button>
     </div>
 
+    <!-- Text Prompt Mode -->
+    <div id="text-prompt" class="tab-content active">
+      <label for="userPrompt">What would you like Claude to analyze?</label>
+      <textarea id="userPrompt" placeholder="Example: Highlight all instances where passive voice is used"></textarea>
+
+      <div class="button-group">
+        <button class="primary-button" id="analyzeBtn" onclick="analyzeDocument()">Analyze</button>
+        <button class="secondary-button" onclick="clearHighlights()">Clear Highlights</button>
+      </div>
+
+      <div class="examples">
+        <h3>Example Prompts:</h3>
+        <ul>
+          <li onclick="setPrompt('Highlight all instances of passive voice')">Highlight passive voice</li>
+          <li onclick="setPrompt('Find and highlight all technical jargon')">Find technical jargon</li>
+          <li onclick="setPrompt('Highlight sentences that are too long or complex')">Find complex sentences</li>
+          <li onclick="setPrompt('Identify and highlight any potential grammar errors')">Find grammar errors</li>
+          <li onclick="setPrompt('Highlight all action items or tasks mentioned')">Find action items</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Rubric Mode -->
+    <div id="rubric-mode" class="tab-content">
+      <div class="form-group">
+        <label for="rubricDocId">Rubric Document ID</label>
+        <input type="text" id="rubricDocId" placeholder="Paste Google Doc ID here">
+        <div class="help-text">Open your rubric Google Doc and copy the ID from the URL</div>
+      </div>
+
+      <button class="primary-button" onclick="loadRubric()" style="width: 100%; margin-bottom: 16px;">Load Rubric</button>
+
+      <!-- Criteria selection (hidden until rubric is loaded) -->
+      <div id="criteriaSection" style="display: none;">
+        <div class="form-group">
+          <label>Select Criteria to Analyze:</label>
+          <div id="criteriaList" class="criteria-list visible"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="targetGrade">Target Grade Level:</label>
+          <select id="targetGrade"></select>
+        </div>
+
+        <div class="button-group">
+          <button class="primary-button" id="analyzeRubricBtn" onclick="analyzeWithRubric()">Analyze with Rubric</button>
+          <button class="secondary-button" onclick="clearHighlights()">Clear Highlights</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading indicator -->
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p>Analyzing document...</p>
+      <p id="loadingText">Analyzing document...</p>
     </div>
 
+    <!-- Status messages -->
     <div class="status" id="status"></div>
 
-    <div class="examples">
-      <h3>Example Prompts:</h3>
-      <ul>
-        <li onclick="setPrompt('Highlight all instances of passive voice')">Highlight passive voice</li>
-        <li onclick="setPrompt('Find and highlight all technical jargon')">Find technical jargon</li>
-        <li onclick="setPrompt('Highlight sentences that are too long or complex')">Find complex sentences</li>
-        <li onclick="setPrompt('Identify and highlight any potential grammar errors')">Find grammar errors</li>
-        <li onclick="setPrompt('Highlight all action items or tasks mentioned')">Find action items</li>
-      </ul>
+    <!-- Color legend (shown after rubric analysis) -->
+    <div class="legend" id="legend">
+      <h3>Highlighting Legend:</h3>
+      <div id="legendContent"></div>
     </div>
   </div>
 
   <script>
+    // Global variables to store rubric data
+    var loadedRubricData = null;
+
+    // Tab switching
+    function switchTab(tabName) {
+      // Update tab buttons
+      var tabs = document.querySelectorAll('.tab');
+      tabs.forEach(function(tab) {
+        tab.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update tab content
+      var contents = document.querySelectorAll('.tab-content');
+      contents.forEach(function(content) {
+        content.classList.remove('active');
+      });
+      document.getElementById(tabName).classList.add('active');
+
+      // Hide legend and status when switching tabs
+      document.getElementById('legend').classList.remove('visible');
+      document.getElementById('status').style.display = 'none';
+    }
+
+    // Text Prompt Mode
     function analyzeDocument() {
       var prompt = document.getElementById('userPrompt').value.trim();
 
@@ -206,8 +398,10 @@
       }
 
       // Show loading state
+      document.getElementById('loadingText').textContent = 'Analyzing document...';
       document.getElementById('loading').style.display = 'block';
       document.getElementById('status').style.display = 'none';
+      document.getElementById('legend').classList.remove('visible');
       document.getElementById('analyzeBtn').disabled = true;
 
       // Call the server-side function
@@ -241,9 +435,171 @@
       showStatus('Error: ' + error.message, 'error');
     }
 
-    function clearHighlights() {
+    // Rubric Mode
+    function loadRubric() {
+      var docId = document.getElementById('rubricDocId').value.trim();
+
+      if (!docId) {
+        showStatus('Please enter a Rubric Document ID.', 'error');
+        return;
+      }
+
+      // Show loading state
+      document.getElementById('loadingText').textContent = 'Loading rubric...';
       document.getElementById('loading').style.display = 'block';
       document.getElementById('status').style.display = 'none';
+
+      // Call the server-side function
+      google.script.run
+        .withSuccessHandler(onRubricLoaded)
+        .withFailureHandler(onRubricLoadFailure)
+        .readRubricDocument(docId);
+    }
+
+    function onRubricLoaded(result) {
+      document.getElementById('loading').style.display = 'none';
+
+      if (result.success) {
+        loadedRubricData = result;
+
+        // Display criteria as checkboxes
+        var criteriaList = document.getElementById('criteriaList');
+        criteriaList.innerHTML = '';
+
+        result.criteria.forEach(function(criterion, index) {
+          var div = document.createElement('div');
+          div.className = 'criterion-item';
+
+          var checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = 'criterion-' + index;
+          checkbox.value = criterion.name;
+          checkbox.checked = true; // Default to checked
+
+          var label = document.createElement('label');
+          label.htmlFor = 'criterion-' + index;
+          label.textContent = criterion.name;
+
+          div.appendChild(checkbox);
+          div.appendChild(label);
+          criteriaList.appendChild(div);
+        });
+
+        // Populate grade level dropdown
+        var gradeSelect = document.getElementById('targetGrade');
+        gradeSelect.innerHTML = '';
+
+        result.gradeLevels.forEach(function(grade) {
+          var option = document.createElement('option');
+          option.value = grade;
+          option.textContent = grade;
+          gradeSelect.appendChild(option);
+        });
+
+        // Show the criteria section
+        document.getElementById('criteriaSection').style.display = 'block';
+
+        showStatus('Rubric loaded successfully! Found ' + result.criteria.length + ' criteria.', 'success');
+      } else {
+        showStatus(result.error || 'Failed to load rubric.', 'error');
+      }
+    }
+
+    function onRubricLoadFailure(error) {
+      document.getElementById('loading').style.display = 'none';
+      showStatus('Error loading rubric: ' + error.message, 'error');
+    }
+
+    function analyzeWithRubric() {
+      if (!loadedRubricData) {
+        showStatus('Please load a rubric first.', 'error');
+        return;
+      }
+
+      // Get selected criteria
+      var checkboxes = document.querySelectorAll('#criteriaList input[type="checkbox"]:checked');
+      var selectedCriteria = [];
+
+      checkboxes.forEach(function(checkbox) {
+        selectedCriteria.push(checkbox.value);
+      });
+
+      if (selectedCriteria.length === 0) {
+        showStatus('Please select at least one criterion to analyze.', 'error');
+        return;
+      }
+
+      var targetGrade = document.getElementById('targetGrade').value;
+
+      // Show loading state
+      document.getElementById('loadingText').textContent = 'Analyzing with rubric...';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('status').style.display = 'none';
+      document.getElementById('legend').classList.remove('visible');
+      document.getElementById('analyzeRubricBtn').disabled = true;
+
+      // Call the server-side function
+      google.script.run
+        .withSuccessHandler(onRubricAnalysisSuccess)
+        .withFailureHandler(onRubricAnalysisFailure)
+        .analyzeDocumentWithRubric(selectedCriteria, targetGrade, loadedRubricData);
+    }
+
+    function onRubricAnalysisSuccess(result) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('analyzeRubricBtn').disabled = false;
+
+      if (result.success) {
+        var message = result.message || 'Rubric analysis complete!';
+        if (result.analysis) {
+          message += '\n\nAnalysis: ' + result.analysis;
+        }
+        showStatus(message, 'success');
+
+        // Display color legend
+        displayLegend(result.colorMap);
+      } else {
+        showStatus(result.error || 'An error occurred during rubric analysis.', 'error');
+      }
+    }
+
+    function onRubricAnalysisFailure(error) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('analyzeRubricBtn').disabled = false;
+      showStatus('Error: ' + error.message, 'error');
+    }
+
+    function displayLegend(colorMap) {
+      var legendContent = document.getElementById('legendContent');
+      legendContent.innerHTML = '';
+
+      for (var criterion in colorMap) {
+        if (colorMap.hasOwnProperty(criterion)) {
+          var div = document.createElement('div');
+          div.className = 'legend-item';
+
+          var colorBox = document.createElement('div');
+          colorBox.className = 'legend-color';
+          colorBox.style.backgroundColor = colorMap[criterion];
+
+          var label = document.createElement('span');
+          label.textContent = criterion;
+
+          div.appendChild(colorBox);
+          div.appendChild(label);
+          legendContent.appendChild(div);
+        }
+      }
+
+      document.getElementById('legend').classList.add('visible');
+    }
+
+    // Clear highlights
+    function clearHighlights() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('loadingText').textContent = 'Clearing highlights...';
+      document.getElementById('status').style.display = 'none';
+      document.getElementById('legend').classList.remove('visible');
 
       google.script.run
         .withSuccessHandler(onClearSuccess)
@@ -266,6 +622,7 @@
       showStatus('Error: ' + error.message, 'error');
     }
 
+    // Utility functions
     function showStatus(message, type) {
       var statusDiv = document.getElementById('status');
       statusDiv.textContent = message;
