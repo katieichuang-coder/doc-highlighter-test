@@ -489,46 +489,18 @@ function clearHighlights() {
           var textLength = textRange.asString().length;
 
           if (textLength > 0) {
-            // Use the Advanced Slides API to remove background colors
-            var clearedThisShape = false;
-
+            // Use setBackgroundColorTransparent() to properly clear highlights
             try {
-              var objectId = shape.getObjectId();
+              var fullRange = textRange.getRange(0, textLength);
+              var textStyle = fullRange.getTextStyle();
 
-              // Create requests to remove background color from text
-              var requests = [];
+              // This is the correct way to clear backgrounds in Slides!
+              textStyle.setBackgroundColorTransparent();
 
-              // Create an UpdateTextStyleRequest to remove background fill
-              var updateRequest = {
-                updateTextStyle: {
-                  objectId: objectId,
-                  textRange: {
-                    type: 'ALL'  // Apply to all text in this shape
-                  },
-                  style: {
-                    backgroundColor: null  // Remove background color
-                  },
-                  fields: 'backgroundColor'  // Only update the backgroundColor field
-                }
-              };
-
-              requests.push(updateRequest);
-
-              // Execute the batch update
-              try {
-                Slides.Presentations.batchUpdate({requests: requests}, presentation.getId());
-                clearedThisShape = true;
-                Logger.log('Cleared shape ' + (j+1) + ' on slide ' + (i+1) + ' using Advanced API');
-              } catch (apiError) {
-                Logger.log('Advanced API failed for slide ' + (i+1) + ', shape ' + (j+1) + ': ' + apiError.toString());
-              }
-
-            } catch (rangeError) {
-              Logger.log('Failed to clear slide ' + (i+1) + ', shape ' + (j+1) + ': ' + rangeError.toString());
-            }
-
-            if (clearedThisShape) {
               clearedCount++;
+              Logger.log('Cleared highlights in slide ' + (i+1) + ', shape ' + (j+1));
+            } catch (clearError) {
+              Logger.log('Failed to clear slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
             }
           }
         } catch (clearError) {
