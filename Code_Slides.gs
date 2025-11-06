@@ -576,16 +576,72 @@ function readRubricDocument(documentId) {
       };
     }
 
-    // Parse the first table
-    var table = tables[0];
-    var rubricData = parseRubricTable(table);
+    Logger.log('Found ' + tables.length + ' table(s) in the rubric document');
 
-    if (!rubricData.success) {
-      return rubricData;
+    // Parse all tables and combine criteria
+    var allCriteria = [];
+    var allGradeLevels = [];
+    var tableCount = 0;
+
+    for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+      Logger.log('Parsing table ' + (tableIndex + 1) + ' of ' + tables.length);
+
+      var table = tables[tableIndex];
+      var rubricData = parseRubricTable(table, tableIndex + 1);
+
+      if (!rubricData.success) {
+        Logger.log('Warning: Skipping table ' + (tableIndex + 1) + ' - ' + rubricData.error);
+        continue; // Skip invalid tables
+      }
+
+      // Merge grade levels (take from first valid table, warn if different)
+      if (allGradeLevels.length === 0) {
+        allGradeLevels = rubricData.gradeLevels;
+      } else {
+        // Check if grade levels match
+        var levelsMatch = allGradeLevels.length === rubricData.gradeLevels.length &&
+                          allGradeLevels.every(function(level, index) {
+                            return level === rubricData.gradeLevels[index];
+                          });
+
+        if (!levelsMatch) {
+          Logger.log('Warning: Table ' + (tableIndex + 1) + ' has different grade levels. Using first table\'s levels.');
+          // Still add criteria but map them to the first table's grade levels
+        }
+      }
+
+      // Add all criteria from this table
+      for (var c = 0; c < rubricData.criteria.length; c++) {
+        var criterion = rubricData.criteria[c];
+
+        // Check for duplicate criterion names and make them unique
+        var originalName = criterion.name;
+        var nameIndex = 1;
+        while (allCriteria.some(function(existing) { return existing.name === criterion.name; })) {
+          criterion.name = originalName + ' (' + (nameIndex + 1) + ')';
+          nameIndex++;
+        }
+
+        allCriteria.push(criterion);
+      }
+
+      tableCount++;
     }
 
-    Logger.log('Successfully parsed rubric with ' + rubricData.criteria.length + ' criteria');
-    return rubricData;
+    if (allCriteria.length === 0) {
+      return {
+        success: false,
+        error: 'No valid criteria found in any table. Please check your rubric format.'
+      };
+    }
+
+    Logger.log('Successfully parsed ' + tableCount + ' table(s) with ' + allCriteria.length + ' total criteria');
+
+    return {
+      success: true,
+      gradeLevels: allGradeLevels,
+      criteria: allCriteria
+    };
 
   } catch (error) {
     Logger.log('Error reading rubric document: ' + error.toString());
@@ -612,9 +668,10 @@ function readRubricDocument(documentId) {
  * | Grammar  | desc    | desc    | desc    | desc    | desc    |
  *
  * @param {Table} table - The table element from Google Docs
+ * @param {number} tableIndex - Optional table number for logging (1-based)
  * @return {Object} Parsed rubric data
  */
-function parseRubricTable(table) {
+function parseRubricTable(table, tableIndex) {
   try {
     var numRows = table.getNumRows();
 
@@ -642,7 +699,8 @@ function parseRubricTable(table) {
       gradeLevels.push(cellText);
     }
 
-    Logger.log('Found grade levels: ' + gradeLevels.join(', '));
+    var tableLabel = tableIndex ? ' (Table ' + tableIndex + ')' : '';
+    Logger.log('Found grade levels' + tableLabel + ': ' + gradeLevels.join(', '));
 
     // Parse criteria rows
     var criteria = [];
@@ -665,7 +723,7 @@ function parseRubricTable(table) {
         descriptors: gradeDescriptors
       });
 
-      Logger.log('Parsed criterion: ' + criterionName);
+      Logger.log('Parsed criterion' + tableLabel + ': ' + criterionName);
     }
 
     if (criteria.length === 0) {
