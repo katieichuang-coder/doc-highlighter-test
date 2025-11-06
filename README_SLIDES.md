@@ -4,11 +4,15 @@ This is a Google Apps Script that integrates Claude AI with Google Slides to ana
 
 ## Features
 
+- **Two Analysis Modes**:
+  - **Text Prompt Mode**: Free-form analysis based on custom prompts
+  - **Rubric Mode**: Structured grading against predefined rubric criteria
 - **AI-Powered Analysis**: Use Claude AI to analyze your presentation text
 - **Smart Highlighting**: Automatically highlights text segments across all slides
+- **Multi-Color Grading**: Different colors for different rubric criteria with visual legend
 - **Flexible Text Matching**: Handles different quote/apostrophe variations (smart quotes, straight quotes)
 - **Custom Prompts**: Ask Claude to find passive voice, jargon, grammar errors, action items, and more
-- **Easy to Use**: Simple sidebar interface with one-click analysis and clearing
+- **Easy to Use**: Simple sidebar interface with tabs for different modes
 
 ## Setup Instructions
 
@@ -58,16 +62,57 @@ The first time you run the script:
 
 ## How to Use
 
-### Analyze Your Presentation
+### Text Prompt Mode (Free-form Analysis)
 
 1. Open the sidebar: **Claude AI > Analyze Presentation**
-2. Enter a prompt describing what you want to find (e.g., "Highlight all instances of passive voice")
-3. Click **Analyze**
-4. Claude will analyze your presentation and highlight matching text in yellow
+2. Select the **Text Prompt** tab
+3. Enter a prompt describing what you want to find (e.g., "Highlight all instances of passive voice")
+4. Click **Analyze**
+5. Claude will analyze your presentation and highlight matching text in yellow
+
+### Rubric Mode (Structured Grading)
+
+Perfect for teachers grading student presentations against standardized rubrics!
+
+#### Step 1: Create Your Rubric Document
+
+Create a Google Doc with a table in this format:
+
+```
+| Criteria    | Grade 1       | Grade 2     | Grade 3   | Grade 4      | Grade 5        |
+|-------------|---------------|-------------|-----------|--------------|----------------|
+| Clarity     | Unclear       | Mixed       | Clear     | Very clear   | Extremely clear|
+| Evidence    | No evidence   | Weak        | Some      | Strong       | Comprehensive  |
+| Organization| Disorganized  | Somewhat    | Organized | Well-org.    | Exceptionally  |
+```
+
+**Note**: Your rubric must be a Google Doc (not Slides), even when grading presentations.
+
+#### Step 2: Get the Document ID
+
+1. Open your rubric Google Doc
+2. Copy the ID from the URL: `https://docs.google.com/document/d/DOCUMENT_ID_HERE/edit`
+
+#### Step 3: Load and Use the Rubric
+
+1. Open the presentation you want to grade
+2. Go to **Claude AI > Analyze Presentation**
+3. Select the **Rubric Mode** tab
+4. Paste your rubric Document ID
+5. Click **Load Rubric**
+6. Select which criteria to analyze (all selected by default)
+7. Choose the target grade level
+8. Click **Analyze with Rubric**
+
+#### Step 4: Review Results
+
+- Each criterion is highlighted in a different color
+- The color legend appears at the bottom showing which color matches which criterion
+- Claude identifies text segments that don't meet the target grade level
 
 ### Clear Highlights
 
-Click the **Clear Highlights** button in the sidebar to remove all yellow highlights.
+Click the **Clear Highlights** button in either mode to remove all highlights.
 
 ## Example Prompts
 

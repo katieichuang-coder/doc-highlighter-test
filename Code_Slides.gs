@@ -514,3 +514,453 @@ function clearHighlights() {
     };
   }
 }
+
+// =============================================================================
+// RUBRIC-BASED GRADING FUNCTIONS
+// =============================================================================
+
+/**
+ * Color palette for different criteria (10 distinct colors)
+ */
+const RUBRIC_COLORS = [
+  '#FFFF00', // Yellow
+  '#FFD700', // Gold
+  '#FFA500', // Orange
+  '#FF6B6B', // Light red
+  '#98D8C8', // Mint
+  '#A8E6CF', // Light green
+  '#B4A7D6', // Lavender
+  '#FFB3BA', // Light pink
+  '#BFEFFF', // Light blue
+  '#FFE4B5'  // Moccasin
+];
+
+/**
+ * Reads and parses a rubric document by its ID
+ * NOTE: Rubric must be a Google Doc (not Slides), even when grading presentations
+ * @param {string} documentId - The ID of the Google Doc containing the rubric
+ * @return {Object} Parsed rubric data or error
+ */
+function readRubricDocument(documentId) {
+  try {
+    Logger.log('Reading rubric document: ' + documentId);
+
+    // Open the document (rubric is always a Google Doc with a table)
+    var rubricDoc = DocumentApp.openById(documentId);
+    var body = rubricDoc.getBody();
+
+    // Find the first table in the document
+    var tables = [];
+    var numChildren = body.getNumChildren();
+
+    for (var i = 0; i < numChildren; i++) {
+      var child = body.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.TABLE) {
+        tables.push(child.asTable());
+      }
+    }
+
+    if (tables.length === 0) {
+      return {
+        success: false,
+        error: 'No table found in the rubric document. Please ensure your rubric contains a table.'
+      };
+    }
+
+    // Parse the first table
+    var table = tables[0];
+    var rubricData = parseRubricTable(table);
+
+    if (!rubricData.success) {
+      return rubricData;
+    }
+
+    Logger.log('Successfully parsed rubric with ' + rubricData.criteria.length + ' criteria');
+    return rubricData;
+
+  } catch (error) {
+    Logger.log('Error reading rubric document: ' + error.toString());
+
+    if (error.message && error.message.includes('not found')) {
+      return {
+        success: false,
+        error: 'Document not found. Please check the Document ID and make sure you have access to it.'
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Failed to read rubric document: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Parses a table into rubric criteria structure
+ * Expected format:
+ * | Criteria | Grade 1 | Grade 2 | Grade 3 | Grade 4 | Grade 5 |
+ * |----------|---------|---------|---------|---------|---------|
+ * | Grammar  | desc    | desc    | desc    | desc    | desc    |
+ *
+ * @param {Table} table - The table element from Google Docs
+ * @return {Object} Parsed rubric data
+ */
+function parseRubricTable(table) {
+  try {
+    var numRows = table.getNumRows();
+
+    if (numRows < 2) {
+      return {
+        success: false,
+        error: 'Rubric table must have at least 2 rows (header + 1 criterion).'
+      };
+    }
+
+    // Parse header row to get grade levels
+    var headerRow = table.getRow(0);
+    var numCols = headerRow.getNumCells();
+
+    if (numCols < 2) {
+      return {
+        success: false,
+        error: 'Rubric table must have at least 2 columns (Criteria + at least 1 grade level).'
+      };
+    }
+
+    var gradeLevels = [];
+    for (var col = 1; col < numCols; col++) {
+      var cellText = headerRow.getCell(col).getText().trim();
+      gradeLevels.push(cellText);
+    }
+
+    Logger.log('Found grade levels: ' + gradeLevels.join(', '));
+
+    // Parse criteria rows
+    var criteria = [];
+    for (var row = 1; row < numRows; row++) {
+      var rowElement = table.getRow(row);
+      var criterionName = rowElement.getCell(0).getText().trim();
+
+      if (!criterionName) {
+        continue; // Skip empty rows
+      }
+
+      var gradeDescriptors = {};
+      for (var col = 1; col < numCols; col++) {
+        var descriptor = rowElement.getCell(col).getText().trim();
+        gradeDescriptors[gradeLevels[col - 1]] = descriptor;
+      }
+
+      criteria.push({
+        name: criterionName,
+        descriptors: gradeDescriptors
+      });
+
+      Logger.log('Parsed criterion: ' + criterionName);
+    }
+
+    if (criteria.length === 0) {
+      return {
+        success: false,
+        error: 'No criteria found in the rubric table.'
+      };
+    }
+
+    return {
+      success: true,
+      gradeLevels: gradeLevels,
+      criteria: criteria
+    };
+
+  } catch (error) {
+    Logger.log('Error parsing rubric table: ' + error.toString());
+    return {
+      success: false,
+      error: 'Failed to parse rubric table: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Analyzes presentation using rubric-based criteria
+ * @param {Array} selectedCriteria - Array of selected criterion names
+ * @param {string} targetGrade - The target grade level to check against
+ * @param {Object} rubricData - The parsed rubric data
+ * @return {Object} Analysis result
+ */
+function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
+  try {
+    // Get API key from script properties
+    var apiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'API Key not set. Please go to Claude AI > Set API Key to configure your API key.'
+      };
+    }
+
+    // Get presentation text
+    var presentationText = getPresentationText();
+    if (!presentationText || presentationText.trim().length === 0) {
+      return {
+        success: false,
+        error: 'Presentation is empty. Please add some text to analyze.'
+      };
+    }
+
+    // Build the system prompt with rubric criteria
+    var systemPrompt = 'You are a presentation grading assistant using a rubric. Your task is to analyze the provided presentation text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
+      'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
+      '{\n' +
+      '  "analysis": "Brief summary of the grading",\n' +
+      '  "criteriaResults": {\n' +
+      '    "Criterion Name": {\n' +
+      '      "overallAssessment": "Brief assessment for this criterion",\n' +
+      '      "highlights": [\n' +
+      '        {"text": "exact text from presentation", "reason": "why this needs improvement"}\n' +
+      '      ]\n' +
+      '    }\n' +
+      '  }\n' +
+      '}\n\n' +
+      'CRITICAL HIGHLIGHTING RULES:\n' +
+      '1. For SENTENCES: Extract the FIRST 5-10 words (the beginning of the sentence)\n' +
+      '2. For WORDS: Extract just the individual word\n' +
+      '3. For PHRASES: Extract the exact phrase (up to 10 words)\n' +
+      '4. Always extract from the START/BEGINNING of the identified text\n' +
+      '5. Copy text EXACTLY as it appears - preserve all punctuation, spacing, and capitalization\n' +
+      '6. DO NOT include line breaks or newlines in the text segments\n' +
+      '7. Each text segment must be SHORT (5-10 words maximum) for reliable matching\n\n' +
+      'CRITICAL JSON FORMATTING RULES:\n' +
+      '1. Return ONLY the JSON object, nothing else\n' +
+      '2. Properly escape all special characters (use \\\" for quotes, \\\\ for backslashes)\n' +
+      '3. Each "text" value must be a SHORT segment (5-10 words max)\n' +
+      '4. No newlines (\\n) within text segments';
+
+    // Build the rubric description
+    var rubricDescription = '\n\nRUBRIC CRITERIA (Target Grade: ' + targetGrade + '):\n\n';
+
+    for (var i = 0; i < selectedCriteria.length; i++) {
+      var criterionName = selectedCriteria[i];
+      var criterion = rubricData.criteria.find(function(c) { return c.name === criterionName; });
+
+      if (criterion) {
+        rubricDescription += 'Criterion: ' + criterionName + '\n';
+        rubricDescription += 'Target Grade (' + targetGrade + '): ' + criterion.descriptors[targetGrade] + '\n';
+
+        // Include neighboring grade levels for context
+        var gradeIndex = rubricData.gradeLevels.indexOf(targetGrade);
+        if (gradeIndex > 0) {
+          var lowerGrade = rubricData.gradeLevels[gradeIndex - 1];
+          rubricDescription += 'Below Target (' + lowerGrade + '): ' + criterion.descriptors[lowerGrade] + '\n';
+        }
+        if (gradeIndex < rubricData.gradeLevels.length - 1) {
+          var higherGrade = rubricData.gradeLevels[gradeIndex + 1];
+          rubricDescription += 'Above Target (' + higherGrade + '): ' + criterion.descriptors[higherGrade] + '\n';
+        }
+        rubricDescription += '\n';
+      }
+    }
+
+    var userMessage = 'Presentation text:\n---\n' + presentationText + '\n---\n' + rubricDescription +
+      '\nFor each criterion, identify text segments that do NOT meet the target grade level. ' +
+      'Extract the BEGINNING portion (first 5-10 words) of each problematic segment. ' +
+      'Make sure the text matches EXACTLY as it appears in the presentation.';
+
+    Logger.log('Calling Claude API with rubric-based prompt');
+
+    // Call Claude API
+    var response = callClaudeAPI(apiKey, systemPrompt, userMessage);
+
+    if (!response.success) {
+      return response;
+    }
+
+    // Parse Claude's response
+    var analysisResult = parseRubricResponse(response.data);
+
+    if (!analysisResult.success) {
+      return analysisResult;
+    }
+
+    // Create color mapping for selected criteria
+    var colorMap = {};
+    for (var i = 0; i < selectedCriteria.length; i++) {
+      colorMap[selectedCriteria[i]] = RUBRIC_COLORS[i % RUBRIC_COLORS.length];
+    }
+
+    // Highlight the identified text segments with different colors
+    var highlightResult = highlightTextSegmentsWithColors(analysisResult.criteriaResults, colorMap);
+
+    var message = 'Rubric analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s) across ' +
+                  Object.keys(analysisResult.criteriaResults).length + ' criteria.';
+    if (highlightResult.notFoundCount > 0) {
+      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the presentation.';
+    }
+
+    return {
+      success: true,
+      analysis: analysisResult.analysis,
+      criteriaResults: analysisResult.criteriaResults,
+      colorMap: colorMap,
+      highlightCount: highlightResult.highlightCount,
+      notFoundCount: highlightResult.notFoundCount,
+      message: message
+    };
+
+  } catch (error) {
+    Logger.log('Error in analyzeDocumentWithRubric: ' + error.toString());
+    return {
+      success: false,
+      error: 'An error occurred: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Parses Claude's rubric-based response
+ * @param {string} responseText - Claude's response text
+ * @return {Object} Parsed result
+ */
+function parseRubricResponse(responseText) {
+  try {
+    Logger.log('Parsing rubric response (first 500 chars): ' + responseText.substring(0, 500));
+
+    var jsonText = null;
+
+    // Try to extract JSON from markdown code blocks first
+    var codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    } else {
+      // Try to find a JSON object - look for the first { to last }
+      var firstBrace = responseText.indexOf('{');
+      var lastBrace = responseText.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = responseText.substring(firstBrace, lastBrace + 1);
+      }
+    }
+
+    if (!jsonText) {
+      return {
+        success: false,
+        error: 'Could not find JSON in Claude\'s response.'
+      };
+    }
+
+    var parsedResponse = JSON.parse(jsonText);
+
+    if (!parsedResponse.criteriaResults || typeof parsedResponse.criteriaResults !== 'object') {
+      return {
+        success: false,
+        error: 'Invalid response format - missing criteriaResults object'
+      };
+    }
+
+    return {
+      success: true,
+      analysis: parsedResponse.analysis || 'Rubric analysis completed',
+      criteriaResults: parsedResponse.criteriaResults
+    };
+
+  } catch (error) {
+    Logger.log('Error parsing rubric response: ' + error.toString());
+    return {
+      success: false,
+      error: 'Failed to parse response: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Highlights text segments with different colors based on criteria (Slides version)
+ * @param {Object} criteriaResults - Object mapping criterion names to their highlights
+ * @param {Object} colorMap - Object mapping criterion names to colors
+ * @return {Object} Result with highlight count
+ */
+function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
+  var presentation = SlidesApp.getActivePresentation();
+  var slides = presentation.getSlides();
+  var highlightCount = 0;
+  var notFoundCount = 0;
+
+  Logger.log('=== Starting multi-color highlighting for Slides ===');
+
+  for (var criterionName in criteriaResults) {
+    if (!criteriaResults.hasOwnProperty(criterionName)) continue;
+
+    var criterionData = criteriaResults[criterionName];
+    var highlights = criterionData.highlights || [];
+    var color = colorMap[criterionName] || '#FFFF00'; // Default to yellow
+
+    Logger.log('\nCriterion: ' + criterionName + ' (Color: ' + color + ')');
+    Logger.log('Segments to highlight: ' + highlights.length);
+
+    for (var i = 0; i < highlights.length; i++) {
+      var textToHighlight = highlights[i].text;
+      var reason = highlights[i].reason || 'No reason provided';
+
+      if (!textToHighlight) {
+        continue;
+      }
+
+      Logger.log('\n--- Segment ' + (i+1) + ' for ' + criterionName + ' ---');
+      Logger.log('Text: "' + textToHighlight + '"');
+
+      var foundAny = false;
+
+      // Search through all slides and shapes
+      for (var slideIndex = 0; slideIndex < slides.length; slideIndex++) {
+        var slide = slides[slideIndex];
+        var shapes = slide.getShapes();
+
+        for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
+          var shape = shapes[shapeIndex];
+
+          if (!shape.getText) {
+            continue;
+          }
+
+          var textRange = shape.getText();
+          var shapeText = textRange.asString();
+
+          // Find all occurrences of the text in this shape
+          var occurrences = findTextOccurrences(shapeText, textToHighlight);
+
+          if (occurrences.length > 0) {
+            Logger.log('Found ' + occurrences.length + ' occurrence(s) in slide ' + (slideIndex + 1) + ', shape ' + (shapeIndex + 1));
+
+            for (var k = 0; k < occurrences.length; k++) {
+              var occurrence = occurrences[k];
+              try {
+                // Get the specific text range and apply highlight with criterion color
+                var rangeToHighlight = textRange.getRange(occurrence.start, occurrence.end);
+                rangeToHighlight.getTextStyle().setBackgroundColor(color);
+                highlightCount++;
+                foundAny = true;
+              } catch (highlightError) {
+                Logger.log('Error highlighting at position ' + occurrence.start + '-' + occurrence.end + ': ' + highlightError.toString());
+              }
+            }
+          }
+        }
+      }
+
+      if (!foundAny) {
+        Logger.log('Result: NOT FOUND in any slide');
+        notFoundCount++;
+      } else {
+        Logger.log('✓ Highlighted with ' + color);
+      }
+    }
+  }
+
+  Logger.log('\n=== Multi-color Highlighting Summary ===');
+  Logger.log('Total highlighted: ' + highlightCount);
+  Logger.log('Not found: ' + notFoundCount);
+
+  return {
+    highlightCount: highlightCount,
+    notFoundCount: notFoundCount
+  };
+}
