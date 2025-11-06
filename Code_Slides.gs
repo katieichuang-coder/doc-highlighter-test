@@ -489,10 +489,29 @@ function clearHighlights() {
           var textLength = textRange.asString().length;
 
           if (textLength > 0) {
-            // Clear background color for entire text range
-            var fullRange = textRange.getRange(0, textLength);
-            fullRange.getTextStyle().setBackgroundColor(null);
-            clearedCount++;
+            // In Slides, we need to clear character by character for backgrounds
+            // This is more reliable than trying to clear the entire range at once
+            try {
+              for (var charIndex = 0; charIndex < textLength; charIndex++) {
+                try {
+                  var charRange = textRange.getRange(charIndex, charIndex + 1);
+                  var charStyle = charRange.getTextStyle();
+
+                  // Check if this character has a background color
+                  var bgColor = charStyle.getBackgroundColor();
+                  if (bgColor) {
+                    // Only try to clear if there's actually a background
+                    charStyle.setBackgroundColor(null);
+                  }
+                } catch (charError) {
+                  // Skip this character if we can't clear it
+                  continue;
+                }
+              }
+              clearedCount++;
+            } catch (rangeError) {
+              Logger.log('Failed to clear slide ' + (i+1) + ', shape ' + (j+1) + ': ' + rangeError.toString());
+            }
           }
         } catch (clearError) {
           Logger.log('Error clearing highlights in slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
