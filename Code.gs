@@ -696,51 +696,57 @@ function parseRubricTable(table, tableIndex) {
 
     // Parse criteria rows
     var criteria = [];
-    var currentCriterion = null;
+    var currentParent = null;
 
     for (var row = 1; row < numRows; row++) {
       var rowElement = table.getRow(row);
-      var criterionName = rowElement.getCell(0).getText().trim();
 
-      // Handle sub-rows (empty criterion name)
+      // Get the raw criterion name (don't trim yet - need to check indentation)
+      var rawCriterionName = rowElement.getCell(0).getText();
+      var criterionName = rawCriterionName.trim();
+
+      // Skip empty rows
       if (!criterionName) {
-        if (currentCriterion) {
-          // This is a sub-row - append to the current criterion's descriptors
-          for (var col = 1; col < numCols; col++) {
-            var descriptor = rowElement.getCell(col).getText().trim();
-            if (descriptor) {
-              var gradeLevel = gradeLevels[col - 1];
-              var existing = currentCriterion.descriptors[gradeLevel];
-
-              // Append with line break if there's existing content
-              if (existing) {
-                currentCriterion.descriptors[gradeLevel] = existing + '\n' + descriptor;
-              } else {
-                currentCriterion.descriptors[gradeLevel] = descriptor;
-              }
-            }
-          }
-          Logger.log('Added sub-row to criterion' + tableLabel + ': ' + currentCriterion.name);
-        } else {
-          Logger.log('Warning: Found sub-row before any criterion in table' + tableLabel + ', row ' + (row + 1));
-        }
-        continue; // Move to next row
+        continue;
       }
 
-      // New criterion - parse normally
+      // Check if this is a sub-criterion (indented with spaces or tabs)
+      var isIndented = rawCriterionName !== criterionName &&
+                       (rawCriterionName.startsWith(' ') || rawCriterionName.startsWith('\t'));
+
+      // Parse grade descriptors
       var gradeDescriptors = {};
+      var hasDescriptors = false;
       for (var col = 1; col < numCols; col++) {
         var descriptor = rowElement.getCell(col).getText().trim();
         gradeDescriptors[gradeLevels[col - 1]] = descriptor;
+        if (descriptor) {
+          hasDescriptors = true;
+        }
       }
 
-      currentCriterion = {
-        name: criterionName,
-        descriptors: gradeDescriptors
-      };
+      // Determine the final criterion name
+      var finalName = criterionName;
+      if (isIndented && currentParent) {
+        // This is a sub-criterion - combine with parent name
+        finalName = currentParent + '-' + criterionName;
+        Logger.log('Parsed sub-criterion' + tableLabel + ': ' + finalName);
+      } else {
+        // This is a parent criterion
+        if (hasDescriptors) {
+          Logger.log('Parsed criterion' + tableLabel + ': ' + criterionName);
+        } else {
+          Logger.log('Parsed parent criterion' + tableLabel + ': ' + criterionName + ' (no descriptors)');
+        }
+        // Track as current parent for subsequent sub-criteria
+        currentParent = criterionName;
+      }
 
-      criteria.push(currentCriterion);
-      Logger.log('Parsed criterion' + tableLabel + ': ' + criterionName);
+      // Add criterion to list (even if it has no descriptors, as it may be a standalone parent)
+      criteria.push({
+        name: finalName,
+        descriptors: gradeDescriptors
+      });
     }
 
     if (criteria.length === 0) {
