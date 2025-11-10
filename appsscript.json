@@ -4,13 +4,13 @@
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "oauthScopes": [
-    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/presentations",
     "https://www.googleapis.com/auth/script.container.ui",
     "https://www.googleapis.com/auth/script.external_request"
   ],
   "addOns": {
     "common": {
-      "name": "Claude AI Rubric Analyzer for Docs",
+      "name": "Claude AI Rubric Analyzer for Slides",
       "logoUrl": "https://www.anthropic.com/images/icons/app-icon.png",
       "layoutProperties": {
         "primaryColor": "#D97757",
@@ -22,7 +22,7 @@
       },
       "useLocaleFromApp": true
     },
-    "docs": {
+    "slides": {
       "homepageTrigger": {
         "runFunction": "showSidebar"
       },
