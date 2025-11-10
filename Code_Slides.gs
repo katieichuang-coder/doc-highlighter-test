@@ -700,98 +700,124 @@ function parseRubricTable(table, tableIndex) {
       };
     }
 
-    // Parse header row to get grade levels
+    // Parse header row to determine table structure and grade levels
     var headerRow = table.getRow(0);
     var numCols = headerRow.getNumCells();
 
     if (numCols < 2) {
       return {
         success: false,
-        error: 'Rubric table must have at least 2 columns (Criteria + at least 1 grade level).'
+        error: 'Rubric table must have at least 2 columns.'
       };
     }
 
+    // Detect if we have 2 criterion columns (Pattern B) or 1 criterion column (Pattern A)
+    // Pattern B: Parent | Sub-Criterion | Grade 0 | Grade 1 | ...
+    // Pattern A: Criteria | Grade 0 | Grade 1 | ...
+    var hasTwoCriterionColumns = false;
+    var gradeStartCol = 1; // Default: grades start at column 1
+
+    // Check if second column header looks like a sub-criterion column
+    if (numCols >= 3) {
+      var col1Header = headerRow.getCell(1).getText().trim().toLowerCase();
+      // Common sub-criterion column headers
+      if (col1Header === '' ||
+          col1Header.includes('sub') ||
+          col1Header.includes('criterion') ||
+          col1Header.includes('criteria') ||
+          col1Header.includes('item') ||
+          col1Header.includes('aspect')) {
+        // Check if column 2 looks like a grade (contains number or "grade")
+        var col2Header = headerRow.getCell(2).getText().trim().toLowerCase();
+        if (col2Header.includes('grade') || col2Header.includes('level') || /\d/.test(col2Header)) {
+          hasTwoCriterionColumns = true;
+          gradeStartCol = 2;
+        }
+      }
+    }
+
+    // Parse grade levels
     var gradeLevels = [];
-    for (var col = 1; col < numCols; col++) {
+    for (var col = gradeStartCol; col < numCols; col++) {
       var cellText = headerRow.getCell(col).getText().trim();
       gradeLevels.push(cellText);
     }
 
     var tableLabel = tableIndex ? ' (Table ' + tableIndex + ')' : '';
+    Logger.log('Table structure' + tableLabel + ': ' + (hasTwoCriterionColumns ? '2 criterion columns' : '1 criterion column'));
     Logger.log('Found grade levels' + tableLabel + ': ' + gradeLevels.join(', '));
 
     // Parse criteria rows
     var criteria = [];
     var currentParent = null;
-    var subCriterionCounter = 0;
 
     for (var row = 1; row < numRows; row++) {
       var rowElement = table.getRow(row);
 
-      // Get criterion name from first column
-      var rawCriterionName = rowElement.getCell(0).getText();
-      var criterionName = rawCriterionName.trim();
+      var parentName = '';
+      var subName = '';
+
+      if (hasTwoCriterionColumns) {
+        // Pattern B: Two criterion columns
+        parentName = rowElement.getCell(0).getText().trim();
+        subName = rowElement.getCell(1).getText().trim();
+
+        // Handle merged parent cells (empty means use previous parent)
+        if (!parentName && currentParent) {
+          parentName = currentParent;
+        } else if (parentName) {
+          currentParent = parentName;
+        }
+
+        // Skip rows with no sub-criterion name
+        if (!subName) {
+          continue;
+        }
+
+        // Combine parent and sub names
+        var finalName = parentName ? parentName + '-' + subName : subName;
+
+      } else {
+        // Pattern A: Single criterion column (existing logic)
+        var rawCriterionName = rowElement.getCell(0).getText();
+        var criterionName = rawCriterionName.trim();
+
+        // Skip empty rows
+        if (!criterionName) {
+          continue;
+        }
+
+        // Check if this is an indented sub-criterion
+        var isIndented = rawCriterionName !== criterionName &&
+                         (rawCriterionName.startsWith(' ') || rawCriterionName.startsWith('\t'));
+
+        if (isIndented && currentParent) {
+          var finalName = currentParent + '-' + criterionName;
+        } else {
+          var finalName = criterionName;
+          currentParent = criterionName;
+        }
+      }
 
       // Parse grade descriptors
       var gradeDescriptors = {};
       var hasDescriptors = false;
-      for (var col = 1; col < numCols; col++) {
+      for (var col = gradeStartCol; col < numCols; col++) {
         var descriptor = rowElement.getCell(col).getText().trim();
-        gradeDescriptors[gradeLevels[col - 1]] = descriptor;
+        var gradeIndex = col - gradeStartCol;
+        gradeDescriptors[gradeLevels[gradeIndex]] = descriptor;
         if (descriptor) {
           hasDescriptors = true;
         }
       }
 
-      // Skip completely empty rows (no criterion name AND no descriptors)
-      if (!criterionName && !hasDescriptors) {
-        continue;
-      }
-
-      // Check if this is a sub-criterion
-      var isSubCriterion = false;
-      var isIndented = false;
-
-      // Method 1: Check for indentation (spaces or tabs at start)
-      if (rawCriterionName !== criterionName &&
-          (rawCriterionName.startsWith(' ') || rawCriterionName.startsWith('\t'))) {
-        isIndented = true;
-        isSubCriterion = true;
-      }
-
-      // Method 2: Empty criterion name but has descriptors (merged cell pattern)
-      if (!criterionName && hasDescriptors && currentParent) {
-        isSubCriterion = true;
-        // Create auto-generated sub-criterion name
-        subCriterionCounter++;
-        criterionName = 'Item ' + subCriterionCounter;
-      }
-
-      // Determine the final criterion name
-      var finalName = criterionName;
-
-      if (isSubCriterion && currentParent) {
-        // This is a sub-criterion - combine with parent name
-        finalName = currentParent + '-' + criterionName;
-        Logger.log('Parsed sub-criterion' + tableLabel + ': ' + finalName);
-      } else if (criterionName) {
-        // This is a new parent criterion
-        currentParent = criterionName;
-        subCriterionCounter = 0; // Reset counter for new parent
-
-        if (hasDescriptors) {
-          Logger.log('Parsed criterion' + tableLabel + ': ' + criterionName);
-        } else {
-          Logger.log('Parsed parent criterion' + tableLabel + ': ' + criterionName + ' (no descriptors, likely has sub-rows)');
-        }
-      }
-
-      // Only add to criteria list if it has descriptors
+      // Only add criteria with descriptors
       if (hasDescriptors) {
         criteria.push({
           name: finalName,
           descriptors: gradeDescriptors
         });
+        Logger.log('Parsed criterion' + tableLabel + ': ' + finalName);
       }
     }
 
