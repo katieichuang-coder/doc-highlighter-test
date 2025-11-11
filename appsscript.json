@@ -9,6 +9,9 @@
     "https://www.googleapis.com/auth/script.container.ui",
     "https://www.googleapis.com/auth/script.external_request"
   ],
+  "urlFetchWhitelist": [
+    "https://api.anthropic.com/"
+  ],
   "webapp": {
     "access": "MYSELF",
     "executeAs": "USER_DEPLOYING"
@@ -25,10 +28,7 @@
         "runFunction": "showSidebar",
         "enabled": true
       },
-      "useLocaleFromApp": true,
-      "urlFetchWhitelist": [
-        "https://api.anthropic.com/"
-      ]
+      "useLocaleFromApp": true
     },
     "slides": {
       "homepageTrigger": {

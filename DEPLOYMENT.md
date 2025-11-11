@@ -92,12 +92,18 @@ Note: For production, you'll need to submit for verification or stay in "Testing
 
 ## Step 3: Deploy the Add-on
 
-**Important**: Before deploying, ensure your `appsscript.json` includes the `urlFetchWhitelist` for the Claude API (already included in this project):
+**Important**: Before deploying, ensure your `appsscript.json` includes the `urlFetchWhitelist` at the root level for the Claude API (already included in this project):
 ```json
-"urlFetchWhitelist": [
-  "https://api.anthropic.com/"
-]
+{
+  "timeZone": "Australia/Sydney",
+  "oauthScopes": [...],
+  "urlFetchWhitelist": [
+    "https://api.anthropic.com/"
+  ],
+  "addOns": {...}
+}
 ```
+Note: `urlFetchWhitelist` must be at the root level, not inside `addOns.common`.
 
 ### 3.1 Create a Deployment
 
