@@ -732,27 +732,42 @@ function parseRubricTable(table, tableIndex) {
     }
 
     // Strategy 2: If not detected via header, check data rows for sub-criteria in column 1
+    // But ONLY if column 1 header doesn't look like a grade level
     if (!hasTwoCriterionColumns && numCols >= 3 && numRows >= 2) {
-      // Sample first few data rows to see if column 1 has sub-criteria content
-      var sampleSize = Math.min(3, numRows - 1);
-      var col1HasContent = false;
+      var col1Header = headerRow.getCell(1).getText().trim().toLowerCase();
 
-      for (var sampleRow = 1; sampleRow <= sampleSize; sampleRow++) {
-        var sampleRowElement = table.getRow(sampleRow);
-        var col1Text = sampleRowElement.getCell(1).getText().trim();
-        var col2Text = sampleRowElement.getCell(2).getText().trim();
+      // Don't apply Strategy 2 if column 1 header is clearly a grade level
+      var col1HeaderLooksLikeGrade = (col1Header.includes('grade') ||
+          col1Header.includes('level') ||
+          col1Header.includes('mark') ||
+          col1Header.includes('point') ||
+          col1Header.includes('score') ||
+          /\d/.test(col1Header)); // Contains a digit
 
-        // If column 1 has content and column 2 has content, might be Pattern B
-        if (col1Text && col2Text) {
-          col1HasContent = true;
-          break;
+      if (!col1HeaderLooksLikeGrade) {
+        // Sample first few data rows to see if column 1 has sub-criteria content
+        var sampleSize = Math.min(3, numRows - 1);
+        var col1HasContent = false;
+
+        for (var sampleRow = 1; sampleRow <= sampleSize; sampleRow++) {
+          var sampleRowElement = table.getRow(sampleRow);
+          var col1Text = sampleRowElement.getCell(1).getText().trim();
+          var col2Text = sampleRowElement.getCell(2).getText().trim();
+
+          // If column 1 has content and column 2 has content, might be Pattern B
+          if (col1Text && col2Text) {
+            col1HasContent = true;
+            break;
+          }
         }
-      }
 
-      if (col1HasContent) {
-        hasTwoCriterionColumns = true;
-        gradeStartCol = 2;
-        Logger.log('Pattern B detected via data rows: column 1 contains sub-criteria');
+        if (col1HasContent) {
+          hasTwoCriterionColumns = true;
+          gradeStartCol = 2;
+          Logger.log('Pattern B detected via data rows: column 1 contains sub-criteria');
+        }
+      } else {
+        Logger.log('Strategy 2 skipped: column 1 header looks like a grade level: "' + col1Header + '"');
       }
     }
 
