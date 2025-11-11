@@ -1,16 +1,17 @@
 {
-  "timeZone": "America/New_York",
+  "timeZone": "Australia/Sydney",
   "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "oauthScopes": [
     "https://www.googleapis.com/auth/documents.currentonly",
+    "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/script.container.ui",
     "https://www.googleapis.com/auth/script.external_request"
   ],
   "addOns": {
     "common": {
-      "name": "Claude AI Rubric Analyzer for Docs",
+      "name": "Rubric Highlighter for Docs",
       "logoUrl": "https://www.anthropic.com/images/icons/app-icon.png",
       "layoutProperties": {
         "primaryColor": "#D97757",
