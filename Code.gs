@@ -9,13 +9,25 @@ const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Creates a custom menu in Google Slides when the presentation is opened
+ * Works for both standalone scripts and as a Workspace Add-on
+ * @param {Object} e - The event parameter for add-on triggers (optional)
  */
-function onOpen() {
+function onOpen(e) {
   SlidesApp.getUi()
     .createMenu('Claude AI')
     .addItem('Analyze Presentation', 'showSidebar')
     .addItem('Set API Key', 'showApiKeyDialog')
     .addToUi();
+}
+
+/**
+ * Called when user grants file-level permissions to the add-on
+ * This allows the add-on to access the current presentation
+ * @param {Object} e - The event parameter containing authorization info
+ */
+function onFileScopeGranted(e) {
+  // Simply show the sidebar when file scope is granted
+  showSidebar();
 }
 
 /**
