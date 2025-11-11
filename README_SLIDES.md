@@ -124,7 +124,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 
 ### OAuth Scopes
 
-- `documents.readonly`: Read rubric tables from Google Docs
+- `documents`: Read rubric tables from Google Docs
 - `presentations`: Read and modify Google Slides presentations
 - `script.container.ui`: Display sidebar and menus
 - `script.external_request`: Call Claude API

@@ -73,7 +73,7 @@ This is critical for allowing users to install your add-on:
 1. On the **Scopes** page, click **Add or Remove Scopes**
 2. Add these scopes (they match appsscript.json):
    ```
-   https://www.googleapis.com/auth/documents.readonly
+   https://www.googleapis.com/auth/documents
    https://www.googleapis.com/auth/presentations
    https://www.googleapis.com/auth/script.container.ui
    https://www.googleapis.com/auth/script.external_request
@@ -279,7 +279,7 @@ Users will automatically get the updates the next time they open Google Slides.
    - Consider data sensitivity before use
 
 4. **Scope Minimization**:
-   - Current scopes are minimal (documents.readonly for rubrics, presentations for slides)
+   - Current scopes are minimal (documents for rubrics, presentations for slides)
    - Don't add unnecessary scopes
 
 ## Cost Management
