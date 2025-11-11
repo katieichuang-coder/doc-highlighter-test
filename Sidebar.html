@@ -473,7 +473,7 @@
           checkbox.type = 'checkbox';
           checkbox.id = 'criterion-' + index;
           checkbox.value = criterion.name;
-          checkbox.checked = true; // Default to checked
+          checkbox.checked = false; // Default to unchecked
 
           var label = document.createElement('label');
           label.htmlFor = 'criterion-' + index;
@@ -586,6 +586,12 @@
       document.getElementById('loadingText').textContent = 'Clearing highlights...';
       document.getElementById('status').style.display = 'none';
       document.getElementById('legend').classList.remove('visible');
+
+      // Uncheck all criteria checkboxes
+      var checkboxes = document.querySelectorAll('#criteriaList input[type="checkbox"]');
+      checkboxes.forEach(function(checkbox) {
+        checkbox.checked = false;
+      });
 
       google.script.run
         .withSuccessHandler(onClearSuccess)
