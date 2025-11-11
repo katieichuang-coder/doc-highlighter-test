@@ -1,10 +1,26 @@
 # Deployment Guide: Claude AI Rubric Analyser for Slides
 
-This guide provides deployment options for the Claude AI Rubric Analyser. We recommend the **container-bound script** approach as it's simpler and more reliable.
+This guide provides deployment options for the Claude AI Rubric Analyser.
 
-## Recommended: Container-Bound Script (Per-Presentation Installation)
+## Choose Your Deployment Method
 
-This is the **easiest and most reliable method**. The add-on is attached to specific presentations but can be easily copied.
+**Choose based on your requirement:**
+
+### 🎯 Need the add-on in ALL presentations automatically?
+→ **See [DEPLOYMENT_WORKSPACE_ADMIN.md](DEPLOYMENT_WORKSPACE_ADMIN.md)** for domain-wide deployment options.
+
+This requires either:
+- Google Workspace Admin access to install domain-wide via Admin Console, OR
+- Publishing as an unlisted add-on to Google Workspace Marketplace
+
+### 📄 Only need the add-on in specific presentations?
+→ **Continue below** for the container-bound script method (simpler and more reliable).
+
+---
+
+## Container-Bound Script (Per-Presentation Installation)
+
+This is the **easiest and most reliable method** for per-presentation deployment. The add-on is attached to specific presentations but can be easily copied.
 
 ### Method 1: Direct Installation in a Presentation
 
@@ -91,27 +107,28 @@ Now the add-on will use this key for all users who copy the presentation.
 
 ---
 
-## Alternative: Google Workspace Add-on (All Presentations)
+## Alternative: Test Deployments for Development
 
-**⚠️ Advanced Method - May Not Work for All Users**
+**⚠️ For Development and Testing Only**
 
-This method attempts to make the add-on appear in ALL presentations automatically. However, based on user testing, Test Deployments may not work consistently across different Google accounts and configurations.
+This section describes Test Deployments, which are intended for developers to test add-on functionality before production deployment. **Test Deployments are NOT suitable for making the add-on appear in all presentations for end users.**
 
-**Only proceed with this method if:**
-- You have Google Workspace (not personal Google account)
-- You need the add-on in ALL presentations automatically
-- You're willing to troubleshoot deployment issues
-- The container-bound method above doesn't meet your needs
+**If you need the add-on to appear in ALL presentations automatically, see [DEPLOYMENT_WORKSPACE_ADMIN.md](DEPLOYMENT_WORKSPACE_ADMIN.md) instead.**
 
-**Otherwise, use the container-bound method above** (it's simpler and more reliable).
+Test Deployments are useful for:
+- Testing add-on functionality during development
+- Trying out changes before committing to production
+- Developer testing with a small number of collaborators
 
 ### Overview
 
-This deployment attempts to create a private add-on that:
-- Appears automatically in the Add-ons menu for all Google Slides presentations
-- Can be installed by specific users you share the deployment link with
-- Uses your existing Google Cloud Project
-- Persists across all slides for installed users
+Test deployments allow you to:
+- Test the add-on functionality during development
+- Share with a small number of collaborators for testing
+- Verify OAuth scopes and permissions work correctly
+- Debug issues before production deployment
+
+**Note**: For production deployment where the add-on appears in all presentations, see [DEPLOYMENT_WORKSPACE_ADMIN.md](DEPLOYMENT_WORKSPACE_ADMIN.md).
 
 ## Prerequisites
 
