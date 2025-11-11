@@ -1031,3 +1031,122 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
     notFoundCount: notFoundCount
   };
 }
+
+// =============================================================================
+// DIAGNOSTIC FUNCTIONS (for development/testing)
+// =============================================================================
+
+/**
+ * Diagnostic function to analyze rubric document structure
+ * Run this from the Apps Script editor to see the table structure
+ * Go to View > Logs to see the output
+ *
+ * @param {string} documentId - The rubric document ID (optional, uses hardcoded ID if not provided)
+ */
+function diagnoseRubricStructure(documentId) {
+  if (!documentId) {
+    documentId = '1jEEDM1kI1ondibbdlgm4WvnaxDBKmE9Q6Nsm2Pbyp6k';
+  }
+
+  try {
+    Logger.log('=== RUBRIC STRUCTURE ANALYSIS ===');
+    Logger.log('Document ID: ' + documentId);
+    Logger.log('');
+
+    var rubricDoc = DocumentApp.openById(documentId);
+    var body = rubricDoc.getBody();
+
+    // Find all tables
+    var tables = [];
+    var numChildren = body.getNumChildren();
+
+    for (var i = 0; i < numChildren; i++) {
+      var child = body.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.TABLE) {
+        tables.push(child.asTable());
+      }
+    }
+
+    Logger.log('Found ' + tables.length + ' table(s) in document');
+    Logger.log('');
+
+    // Analyze each table
+    for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+      var table = tables[tableIndex];
+      Logger.log('=== TABLE ' + (tableIndex + 1) + ' ===');
+
+      var numRows = table.getNumRows();
+      Logger.log('Number of rows: ' + numRows);
+
+      if (numRows === 0) {
+        Logger.log('Table is empty');
+        Logger.log('');
+        continue;
+      }
+
+      // Analyze header row
+      var headerRow = table.getRow(0);
+      var numCols = headerRow.getNumCells();
+      Logger.log('Number of columns: ' + numCols);
+      Logger.log('');
+
+      Logger.log('HEADER ROW:');
+      for (var col = 0; col < numCols; col++) {
+        var cellText = headerRow.getCell(col).getText().trim();
+        Logger.log('  Column ' + col + ': "' + cellText + '"');
+      }
+      Logger.log('');
+
+      // Analyze first few data rows to understand structure
+      var rowsToShow = Math.min(5, numRows - 1);
+      Logger.log('FIRST ' + rowsToShow + ' DATA ROWS:');
+
+      for (var row = 1; row <= rowsToShow; row++) {
+        Logger.log('  Row ' + row + ':');
+        var rowElement = table.getRow(row);
+        var rowCols = rowElement.getNumCells();
+
+        for (var col = 0; col < rowCols; col++) {
+          var cell = rowElement.getCell(col);
+          var cellText = cell.getText().trim();
+
+          // Show cell content with quotes to see whitespace
+          if (cellText === '') {
+            Logger.log('    Column ' + col + ': [EMPTY]');
+          } else {
+            // Show first 50 chars
+            var displayText = cellText.length > 50 ? cellText.substring(0, 50) + '...' : cellText;
+            Logger.log('    Column ' + col + ': "' + displayText + '"');
+          }
+        }
+        Logger.log('');
+      }
+
+      Logger.log('');
+    }
+
+    Logger.log('=== ATTEMPTING TO PARSE WITH CURRENT FUNCTION ===');
+    var result = readRubricDocument(documentId);
+
+    if (result.success) {
+      Logger.log('✓ Successfully parsed!');
+      Logger.log('Grade Levels: ' + result.gradeLevels.join(', '));
+      Logger.log('Number of criteria: ' + result.criteria.length);
+      Logger.log('');
+      Logger.log('PARSED CRITERIA:');
+      for (var i = 0; i < result.criteria.length; i++) {
+        var criterion = result.criteria[i];
+        Logger.log('  ' + (i+1) + '. ' + criterion.name);
+      }
+    } else {
+      Logger.log('✗ Parsing failed: ' + result.error);
+    }
+
+    Logger.log('');
+    Logger.log('=== END ANALYSIS ===');
+
+  } catch (error) {
+    Logger.log('ERROR: ' + error.toString());
+    Logger.log('Stack: ' + error.stack);
+  }
+}
