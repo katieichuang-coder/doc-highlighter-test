@@ -9,13 +9,31 @@ const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Creates a custom menu in Google Docs when the document is opened
+ * This runs both for container-bound scripts and add-ons
  */
-function onOpen() {
+function onOpen(e) {
   DocumentApp.getUi()
     .createMenu('Claude AI')
     .addItem('Analyze Document', 'showSidebar')
     .addItem('Set API Key', 'showApiKeyDialog')
     .addToUi();
+}
+
+/**
+ * Runs when the add-on is installed
+ * Required for Google Workspace Add-ons
+ */
+function onInstall(e) {
+  onOpen(e);
+}
+
+/**
+ * Callback for when file scope is granted
+ * Required for add-ons using currentonly scope
+ */
+function onFileScopeGranted(e) {
+  // Return the sidebar when permissions are granted
+  return showSidebar();
 }
 
 /**
@@ -515,4 +533,602 @@ function clearHighlights() {
       error: 'Failed to clear highlights: ' + error.toString()
     };
   }
+}
+
+// =============================================================================
+// RUBRIC-BASED GRADING FUNCTIONS
+// =============================================================================
+
+/**
+ * Color palette for different criteria (10 distinct colors)
+ */
+const RUBRIC_COLORS = [
+  '#FFFF00', // Yellow
+  '#FFD700', // Gold
+  '#FFA500', // Orange
+  '#FF6B6B', // Light red
+  '#98D8C8', // Mint
+  '#A8E6CF', // Light green
+  '#B4A7D6', // Lavender
+  '#FFB3BA', // Light pink
+  '#BFEFFF', // Light blue
+  '#FFE4B5'  // Moccasin
+];
+
+/**
+ * Reads and parses a rubric document by its ID
+ * @param {string} documentId - The ID of the Google Doc containing the rubric
+ * @return {Object} Parsed rubric data or error
+ */
+function readRubricDocument(documentId) {
+  try {
+    Logger.log('Reading rubric document: ' + documentId);
+
+    // Open the document
+    var rubricDoc = DocumentApp.openById(documentId);
+    var body = rubricDoc.getBody();
+
+    // Find the first table in the document
+    var tables = [];
+    var numChildren = body.getNumChildren();
+
+    for (var i = 0; i < numChildren; i++) {
+      var child = body.getChild(i);
+      if (child.getType() === DocumentApp.ElementType.TABLE) {
+        tables.push(child.asTable());
+      }
+    }
+
+    if (tables.length === 0) {
+      return {
+        success: false,
+        error: 'No table found in the rubric document. Please ensure your rubric contains a table.'
+      };
+    }
+
+    Logger.log('Found ' + tables.length + ' table(s) in the rubric document');
+
+    // Parse all tables and combine criteria
+    var allCriteria = [];
+    var allGradeLevels = [];
+    var tableCount = 0;
+
+    for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+      Logger.log('Parsing table ' + (tableIndex + 1) + ' of ' + tables.length);
+
+      var table = tables[tableIndex];
+      var rubricData = parseRubricTable(table, tableIndex + 1);
+
+      if (!rubricData.success) {
+        Logger.log('Warning: Skipping table ' + (tableIndex + 1) + ' - ' + rubricData.error);
+        continue; // Skip invalid tables
+      }
+
+      // Merge grade levels (take from first valid table, warn if different)
+      if (allGradeLevels.length === 0) {
+        allGradeLevels = rubricData.gradeLevels;
+      } else {
+        // Check if grade levels match
+        var levelsMatch = allGradeLevels.length === rubricData.gradeLevels.length &&
+                          allGradeLevels.every(function(level, index) {
+                            return level === rubricData.gradeLevels[index];
+                          });
+
+        if (!levelsMatch) {
+          Logger.log('Warning: Table ' + (tableIndex + 1) + ' has different grade levels. Using first table\'s levels.');
+          // Still add criteria but map them to the first table's grade levels
+        }
+      }
+
+      // Add all criteria from this table
+      for (var c = 0; c < rubricData.criteria.length; c++) {
+        var criterion = rubricData.criteria[c];
+
+        // Check for duplicate criterion names and make them unique
+        var originalName = criterion.name;
+        var nameIndex = 1;
+        while (allCriteria.some(function(existing) { return existing.name === criterion.name; })) {
+          criterion.name = originalName + ' (' + (nameIndex + 1) + ')';
+          nameIndex++;
+        }
+
+        allCriteria.push(criterion);
+      }
+
+      tableCount++;
+    }
+
+    if (allCriteria.length === 0) {
+      return {
+        success: false,
+        error: 'No valid criteria found in any table. Please check your rubric format.'
+      };
+    }
+
+    Logger.log('Successfully parsed ' + tableCount + ' table(s) with ' + allCriteria.length + ' total criteria');
+
+    return {
+      success: true,
+      gradeLevels: allGradeLevels,
+      criteria: allCriteria
+    };
+
+  } catch (error) {
+    Logger.log('Error reading rubric document: ' + error.toString());
+
+    if (error.message && error.message.includes('not found')) {
+      return {
+        success: false,
+        error: 'Document not found. Please check the Document ID and make sure you have access to it.'
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Failed to read rubric document: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Parses a table into rubric criteria structure
+ * Expected format:
+ * | Criteria | Grade 1 | Grade 2 | Grade 3 | Grade 4 | Grade 5 |
+ * |----------|---------|---------|---------|---------|---------|
+ * | Grammar  | desc    | desc    | desc    | desc    | desc    |
+ *
+ * @param {Table} table - The table element from Google Docs
+ * @param {number} tableIndex - Optional table number for logging (1-based)
+ * @return {Object} Parsed rubric data
+ */
+function parseRubricTable(table, tableIndex) {
+  try {
+    var numRows = table.getNumRows();
+
+    if (numRows < 2) {
+      return {
+        success: false,
+        error: 'Rubric table must have at least 2 rows (header + 1 criterion).'
+      };
+    }
+
+    // Parse header row to determine table structure and grade levels
+    var headerRow = table.getRow(0);
+    var numCols = headerRow.getNumCells();
+
+    if (numCols < 2) {
+      return {
+        success: false,
+        error: 'Rubric table must have at least 2 columns.'
+      };
+    }
+
+    // Detect if we have 2 criterion columns (Pattern B) or 1 criterion column (Pattern A)
+    // Pattern B: Parent | Sub-Criterion | Grade 0 | Grade 1 | ...
+    // Pattern A: Criteria | Grade 0 | Grade 1 | ...
+    var hasTwoCriterionColumns = false;
+    var gradeStartCol = 1; // Default: grades start at column 1
+
+    // Check if second column header looks like a sub-criterion column
+    if (numCols >= 3) {
+      var col1Header = headerRow.getCell(1).getText().trim().toLowerCase();
+      // Common sub-criterion column headers
+      if (col1Header === '' ||
+          col1Header.includes('sub') ||
+          col1Header.includes('criterion') ||
+          col1Header.includes('criteria') ||
+          col1Header.includes('item') ||
+          col1Header.includes('aspect')) {
+        // Check if column 2 looks like a grade (contains number or "grade")
+        var col2Header = headerRow.getCell(2).getText().trim().toLowerCase();
+        if (col2Header.includes('grade') || col2Header.includes('level') || /\d/.test(col2Header)) {
+          hasTwoCriterionColumns = true;
+          gradeStartCol = 2;
+        }
+      }
+    }
+
+    // Parse grade levels
+    var gradeLevels = [];
+    for (var col = gradeStartCol; col < numCols; col++) {
+      var cellText = headerRow.getCell(col).getText().trim();
+      gradeLevels.push(cellText);
+    }
+
+    var tableLabel = tableIndex ? ' (Table ' + tableIndex + ')' : '';
+    Logger.log('Table structure' + tableLabel + ': ' + (hasTwoCriterionColumns ? '2 criterion columns' : '1 criterion column'));
+    Logger.log('Found grade levels' + tableLabel + ': ' + gradeLevels.join(', '));
+
+    // Parse criteria rows
+    var criteria = [];
+    var currentParent = null;
+
+    for (var row = 1; row < numRows; row++) {
+      var rowElement = table.getRow(row);
+
+      var parentName = '';
+      var subName = '';
+
+      if (hasTwoCriterionColumns) {
+        // Pattern B: Two criterion columns
+        parentName = rowElement.getCell(0).getText().trim();
+        subName = rowElement.getCell(1).getText().trim();
+
+        // Handle merged parent cells (empty means use previous parent)
+        if (!parentName && currentParent) {
+          parentName = currentParent;
+        } else if (parentName) {
+          currentParent = parentName;
+        }
+
+        // Skip rows with no sub-criterion name
+        if (!subName) {
+          continue;
+        }
+
+        // Combine parent and sub names
+        var finalName = parentName ? parentName + '-' + subName : subName;
+
+      } else {
+        // Pattern A: Single criterion column (existing logic)
+        var rawCriterionName = rowElement.getCell(0).getText();
+        var criterionName = rawCriterionName.trim();
+
+        // Skip empty rows
+        if (!criterionName) {
+          continue;
+        }
+
+        // Check if this is an indented sub-criterion
+        var isIndented = rawCriterionName !== criterionName &&
+                         (rawCriterionName.startsWith(' ') || rawCriterionName.startsWith('\t'));
+
+        if (isIndented && currentParent) {
+          var finalName = currentParent + '-' + criterionName;
+        } else {
+          var finalName = criterionName;
+          currentParent = criterionName;
+        }
+      }
+
+      // Parse grade descriptors
+      var gradeDescriptors = {};
+      var hasDescriptors = false;
+      for (var col = gradeStartCol; col < numCols; col++) {
+        var descriptor = rowElement.getCell(col).getText().trim();
+        var gradeIndex = col - gradeStartCol;
+        gradeDescriptors[gradeLevels[gradeIndex]] = descriptor;
+        if (descriptor) {
+          hasDescriptors = true;
+        }
+      }
+
+      // Only add criteria with descriptors
+      if (hasDescriptors) {
+        criteria.push({
+          name: finalName,
+          descriptors: gradeDescriptors
+        });
+        Logger.log('Parsed criterion' + tableLabel + ': ' + finalName);
+      }
+    }
+
+    if (criteria.length === 0) {
+      return {
+        success: false,
+        error: 'No criteria found in the rubric table.'
+      };
+    }
+
+    return {
+      success: true,
+      gradeLevels: gradeLevels,
+      criteria: criteria
+    };
+
+  } catch (error) {
+    Logger.log('Error parsing rubric table: ' + error.toString());
+    return {
+      success: false,
+      error: 'Failed to parse rubric table: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Analyzes document using rubric-based criteria
+ * @param {Array} selectedCriteria - Array of selected criterion names
+ * @param {string} targetGrade - The target grade level to check against
+ * @param {Object} rubricData - The parsed rubric data
+ * @return {Object} Analysis result
+ */
+function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
+  try {
+    // Get API key from script properties
+    var apiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'API Key not set. Please go to Claude AI > Set API Key to configure your API key.'
+      };
+    }
+
+    // Get document text
+    var documentText = getDocumentText();
+    if (!documentText || documentText.trim().length === 0) {
+      return {
+        success: false,
+        error: 'Document is empty. Please add some text to analyze.'
+      };
+    }
+
+    // Build the system prompt with rubric criteria
+    var systemPrompt = 'You are a document grading assistant using a rubric. Your task is to analyze the provided document text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
+      'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
+      '{\n' +
+      '  "analysis": "Brief summary of the grading",\n' +
+      '  "criteriaResults": {\n' +
+      '    "Criterion Name": {\n' +
+      '      "overallAssessment": "Brief assessment for this criterion",\n' +
+      '      "highlights": [\n' +
+      '        {"text": "exact text from document", "reason": "why this needs improvement"}\n' +
+      '      ]\n' +
+      '    }\n' +
+      '  }\n' +
+      '}\n\n' +
+      'CRITICAL HIGHLIGHTING RULES:\n' +
+      '1. For SENTENCES: Extract the FIRST 5-10 words (the beginning of the sentence)\n' +
+      '2. For WORDS: Extract just the individual word\n' +
+      '3. For PHRASES: Extract the exact phrase (up to 10 words)\n' +
+      '4. Always extract from the START/BEGINNING of the identified text\n' +
+      '5. Copy text EXACTLY as it appears - preserve all punctuation, spacing, and capitalization\n' +
+      '6. DO NOT include line breaks or newlines in the text segments\n' +
+      '7. Each text segment must be SHORT (5-10 words maximum) for reliable matching\n\n' +
+      'CRITICAL JSON FORMATTING RULES:\n' +
+      '1. Return ONLY the JSON object, nothing else\n' +
+      '2. Properly escape all special characters (use \\\" for quotes, \\\\ for backslashes)\n' +
+      '3. Each "text" value must be a SHORT segment (5-10 words max)\n' +
+      '4. No newlines (\\n) within text segments';
+
+    // Build the rubric description
+    var rubricDescription = '\n\nRUBRIC CRITERIA (Target Grade: ' + targetGrade + '):\n\n';
+
+    for (var i = 0; i < selectedCriteria.length; i++) {
+      var criterionName = selectedCriteria[i];
+      var criterion = rubricData.criteria.find(function(c) { return c.name === criterionName; });
+
+      if (criterion) {
+        rubricDescription += 'Criterion: ' + criterionName + '\n';
+        rubricDescription += 'Target Grade (' + targetGrade + '): ' + criterion.descriptors[targetGrade] + '\n';
+
+        // Include neighboring grade levels for context
+        var gradeIndex = rubricData.gradeLevels.indexOf(targetGrade);
+        if (gradeIndex > 0) {
+          var lowerGrade = rubricData.gradeLevels[gradeIndex - 1];
+          rubricDescription += 'Below Target (' + lowerGrade + '): ' + criterion.descriptors[lowerGrade] + '\n';
+        }
+        if (gradeIndex < rubricData.gradeLevels.length - 1) {
+          var higherGrade = rubricData.gradeLevels[gradeIndex + 1];
+          rubricDescription += 'Above Target (' + higherGrade + '): ' + criterion.descriptors[higherGrade] + '\n';
+        }
+        rubricDescription += '\n';
+      }
+    }
+
+    var userMessage = 'Document text:\n---\n' + documentText + '\n---\n' + rubricDescription +
+      '\nFor each criterion, identify text segments that do NOT meet the target grade level. ' +
+      'Extract the BEGINNING portion (first 5-10 words) of each problematic segment. ' +
+      'Make sure the text matches EXACTLY as it appears in the document.';
+
+    Logger.log('Calling Claude API with rubric-based prompt');
+
+    // Call Claude API
+    var response = callClaudeAPI(apiKey, systemPrompt, userMessage);
+
+    if (!response.success) {
+      return response;
+    }
+
+    // Parse Claude's response
+    var analysisResult = parseRubricResponse(response.data);
+
+    if (!analysisResult.success) {
+      return analysisResult;
+    }
+
+    // Create color mapping for selected criteria
+    var colorMap = {};
+    for (var i = 0; i < selectedCriteria.length; i++) {
+      colorMap[selectedCriteria[i]] = RUBRIC_COLORS[i % RUBRIC_COLORS.length];
+    }
+
+    // Highlight the identified text segments with different colors
+    var highlightResult = highlightTextSegmentsWithColors(analysisResult.criteriaResults, colorMap);
+
+    var message = 'Rubric analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s) across ' +
+                  Object.keys(analysisResult.criteriaResults).length + ' criteria.';
+    if (highlightResult.notFoundCount > 0) {
+      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the document.';
+    }
+
+    return {
+      success: true,
+      analysis: analysisResult.analysis,
+      criteriaResults: analysisResult.criteriaResults,
+      colorMap: colorMap,
+      highlightCount: highlightResult.highlightCount,
+      notFoundCount: highlightResult.notFoundCount,
+      message: message
+    };
+
+  } catch (error) {
+    Logger.log('Error in analyzeDocumentWithRubric: ' + error.toString());
+    return {
+      success: false,
+      error: 'An error occurred: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Parses Claude's rubric-based response
+ * @param {string} responseText - Claude's response text
+ * @return {Object} Parsed result
+ */
+function parseRubricResponse(responseText) {
+  try {
+    Logger.log('Parsing rubric response (first 500 chars): ' + responseText.substring(0, 500));
+
+    var jsonText = null;
+
+    // Try to extract JSON from markdown code blocks first
+    var codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    } else {
+      // Try to find a JSON object - look for the first { to last }
+      var firstBrace = responseText.indexOf('{');
+      var lastBrace = responseText.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = responseText.substring(firstBrace, lastBrace + 1);
+      }
+    }
+
+    if (!jsonText) {
+      return {
+        success: false,
+        error: 'Could not find JSON in Claude\'s response.'
+      };
+    }
+
+    var parsedResponse = JSON.parse(jsonText);
+
+    if (!parsedResponse.criteriaResults || typeof parsedResponse.criteriaResults !== 'object') {
+      return {
+        success: false,
+        error: 'Invalid response format - missing criteriaResults object'
+      };
+    }
+
+    return {
+      success: true,
+      analysis: parsedResponse.analysis || 'Rubric analysis completed',
+      criteriaResults: parsedResponse.criteriaResults
+    };
+
+  } catch (error) {
+    Logger.log('Error parsing rubric response: ' + error.toString());
+    return {
+      success: false,
+      error: 'Failed to parse response: ' + error.toString()
+    };
+  }
+}
+
+/**
+ * Highlights text segments with different colors based on criteria
+ * @param {Object} criteriaResults - Object mapping criterion names to their highlights
+ * @param {Object} colorMap - Object mapping criterion names to colors
+ * @return {Object} Result with highlight count
+ */
+function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  var highlightCount = 0;
+  var notFoundCount = 0;
+
+  Logger.log('=== Starting multi-color highlighting ===');
+
+  for (var criterionName in criteriaResults) {
+    if (!criteriaResults.hasOwnProperty(criterionName)) continue;
+
+    var criterionData = criteriaResults[criterionName];
+    var highlights = criterionData.highlights || [];
+    var color = colorMap[criterionName] || '#FFFF00'; // Default to yellow
+
+    Logger.log('\nCriterion: ' + criterionName + ' (Color: ' + color + ')');
+    Logger.log('Segments to highlight: ' + highlights.length);
+
+    for (var i = 0; i < highlights.length; i++) {
+      var textToHighlight = highlights[i].text;
+      var reason = highlights[i].reason || 'No reason provided';
+
+      if (!textToHighlight) {
+        continue;
+      }
+
+      Logger.log('\n--- Segment ' + (i+1) + ' for ' + criterionName + ' ---');
+      Logger.log('Text: "' + textToHighlight + '"');
+
+      // Try exact match first
+      var searchResult = body.findText(textToHighlight);
+
+      if (searchResult === null) {
+        // Try fallback strategies (same as original function)
+        var foundWithFallback = false;
+
+        if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+          try {
+            var regexPattern = createFlexiblePunctuationPattern(textToHighlight);
+            searchResult = body.findText(regexPattern);
+            if (searchResult !== null) {
+              foundWithFallback = true;
+            }
+          } catch (regexError) {
+            Logger.log('Regex failed: ' + regexError.toString());
+          }
+        }
+
+        if (!foundWithFallback && textToHighlight.includes('\n')) {
+          var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+          searchResult = body.findText(textWithoutNewlines);
+          if (searchResult !== null) {
+            foundWithFallback = true;
+          }
+        }
+
+        if (!foundWithFallback && textToHighlight.length > 50) {
+          var words = textToHighlight.split(/\s+/);
+          if (words.length > 5) {
+            var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
+            searchResult = body.findText(shortPhrase);
+            if (searchResult !== null) {
+              foundWithFallback = true;
+            }
+          }
+        }
+
+        if (!foundWithFallback) {
+          notFoundCount++;
+        }
+      }
+
+      // Highlight all occurrences with the criterion's color
+      if (searchResult !== null) {
+        while (searchResult !== null) {
+          var element = searchResult.getElement();
+          var startOffset = searchResult.getStartOffset();
+          var endOffset = searchResult.getEndOffsetInclusive();
+
+          if (element.asText) {
+            element.asText().setBackgroundColor(startOffset, endOffset, color);
+            highlightCount++;
+          }
+
+          searchResult = body.findText(textToHighlight, searchResult);
+        }
+        Logger.log('✓ Highlighted with ' + color);
+      }
+    }
+  }
+
+  Logger.log('\n=== Multi-color Highlighting Summary ===');
+  Logger.log('Total highlighted: ' + highlightCount);
+  Logger.log('Not found: ' + notFoundCount);
+
+  return {
+    highlightCount: highlightCount,
+    notFoundCount: notFoundCount
+  };
 }
