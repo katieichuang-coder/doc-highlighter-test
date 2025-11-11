@@ -706,22 +706,53 @@ function parseRubricTable(table, tableIndex) {
     var hasTwoCriterionColumns = false;
     var gradeStartCol = 1; // Default: grades start at column 1
 
-    // Check if second column header looks like a sub-criterion column
+    // Strategy 1: Check if second column header looks like a sub-criterion column
     if (numCols >= 3) {
       var col1Header = headerRow.getCell(1).getText().trim().toLowerCase();
-      // Common sub-criterion column headers
-      if (col1Header === '' ||
+      var col2Header = headerRow.getCell(2).getText().trim().toLowerCase();
+
+      // Check if column 1 is empty/sub-criteria header AND column 2 looks like a grade
+      var col1LooksLikeSubCriteria = (col1Header === '' ||
           col1Header.includes('sub') ||
           col1Header.includes('criterion') ||
           col1Header.includes('criteria') ||
           col1Header.includes('item') ||
-          col1Header.includes('aspect')) {
-        // Check if column 2 looks like a grade (contains number or "grade")
-        var col2Header = headerRow.getCell(2).getText().trim().toLowerCase();
-        if (col2Header.includes('grade') || col2Header.includes('level') || col2Header.includes('mark') || /\d/.test(col2Header)) {
-          hasTwoCriterionColumns = true;
-          gradeStartCol = 2;
+          col1Header.includes('aspect'));
+
+      var col2LooksLikeGrade = (col2Header.includes('grade') ||
+          col2Header.includes('level') ||
+          col2Header.includes('mark') ||
+          /\d/.test(col2Header));
+
+      if (col1LooksLikeSubCriteria && col2LooksLikeGrade) {
+        hasTwoCriterionColumns = true;
+        gradeStartCol = 2;
+        Logger.log('Pattern B detected via header: col1="' + col1Header + '", col2="' + col2Header + '"');
+      }
+    }
+
+    // Strategy 2: If not detected via header, check data rows for sub-criteria in column 1
+    if (!hasTwoCriterionColumns && numCols >= 3 && numRows >= 2) {
+      // Sample first few data rows to see if column 1 has sub-criteria content
+      var sampleSize = Math.min(3, numRows - 1);
+      var col1HasContent = false;
+
+      for (var sampleRow = 1; sampleRow <= sampleSize; sampleRow++) {
+        var sampleRowElement = table.getRow(sampleRow);
+        var col1Text = sampleRowElement.getCell(1).getText().trim();
+        var col2Text = sampleRowElement.getCell(2).getText().trim();
+
+        // If column 1 has content and column 2 has content, might be Pattern B
+        if (col1Text && col2Text) {
+          col1HasContent = true;
+          break;
         }
+      }
+
+      if (col1HasContent) {
+        hasTwoCriterionColumns = true;
+        gradeStartCol = 2;
+        Logger.log('Pattern B detected via data rows: column 1 contains sub-criteria');
       }
     }
 
