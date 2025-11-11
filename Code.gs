@@ -880,12 +880,12 @@ function parseRubricTable(table, tableIndex) {
 
 /**
  * Analyzes presentation using rubric-based criteria
+ * Automatically uses the highest grade level (last in array) as the target
  * @param {Array} selectedCriteria - Array of selected criterion names
- * @param {string} targetGrade - The target grade level to check against
  * @param {Object} rubricData - The parsed rubric data
  * @return {Object} Analysis result
  */
-function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
+function analyzeDocumentWithRubric(selectedCriteria, rubricData) {
   try {
     // Get API key from script properties
     var apiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
@@ -904,6 +904,10 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
         error: 'Presentation is empty. Please add some text to analyze.'
       };
     }
+
+    // Automatically detect the highest grade level (last in the array)
+    var targetGrade = rubricData.gradeLevels[rubricData.gradeLevels.length - 1];
+    Logger.log('Auto-detected target grade: ' + targetGrade);
 
     // Build the system prompt with rubric criteria
     var systemPrompt = 'You are a presentation grading assistant using a rubric. Your task is to analyze the provided presentation text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
@@ -934,7 +938,7 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
       '4. No newlines (\\n) within text segments';
 
     // Build the rubric description
-    var rubricDescription = '\n\nRUBRIC CRITERIA (Target Grade: ' + targetGrade + '):\n\n';
+    var rubricDescription = '\n\nRUBRIC CRITERIA (Target: Highest Grade Level - ' + targetGrade + '):\n\n';
 
     for (var i = 0; i < selectedCriteria.length; i++) {
       var criterionName = selectedCriteria[i];
@@ -942,24 +946,24 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
 
       if (criterion) {
         rubricDescription += 'Criterion: ' + criterionName + '\n';
-        rubricDescription += 'Target Grade (' + targetGrade + '): ' + criterion.descriptors[targetGrade] + '\n';
+        rubricDescription += 'Highest Level (' + targetGrade + '): ' + criterion.descriptors[targetGrade] + '\n';
 
-        // Include neighboring grade levels for context
+        // Include lower grade levels for context
         var gradeIndex = rubricData.gradeLevels.indexOf(targetGrade);
         if (gradeIndex > 0) {
           var lowerGrade = rubricData.gradeLevels[gradeIndex - 1];
-          rubricDescription += 'Below Target (' + lowerGrade + '): ' + criterion.descriptors[lowerGrade] + '\n';
+          rubricDescription += 'Below Highest (' + lowerGrade + '): ' + criterion.descriptors[lowerGrade] + '\n';
         }
-        if (gradeIndex < rubricData.gradeLevels.length - 1) {
-          var higherGrade = rubricData.gradeLevels[gradeIndex + 1];
-          rubricDescription += 'Above Target (' + higherGrade + '): ' + criterion.descriptors[higherGrade] + '\n';
+        if (gradeIndex > 1) {
+          var lowestGrade = rubricData.gradeLevels[0];
+          rubricDescription += 'Lowest Level (' + lowestGrade + '): ' + criterion.descriptors[lowestGrade] + '\n';
         }
         rubricDescription += '\n';
       }
     }
 
     var userMessage = 'Presentation text:\n---\n' + presentationText + '\n---\n' + rubricDescription +
-      '\nFor each criterion, identify text segments that do NOT meet the target grade level. ' +
+      '\nFor each criterion, identify text segments that do NOT meet the highest grade level (' + targetGrade + '). ' +
       'Extract the BEGINNING portion (first 5-10 words) of each problematic segment. ' +
       'Make sure the text matches EXACTLY as it appears in the presentation.';
 

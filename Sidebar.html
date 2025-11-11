@@ -335,9 +335,8 @@
           <div id="criteriaList" class="criteria-list visible"></div>
         </div>
 
-        <div class="form-group">
-          <label for="targetGrade">Target Grade Level:</label>
-          <select id="targetGrade"></select>
+        <div class="help-text" style="margin-bottom: 16px;">
+          Analysis will check against the highest grade level for each criterion.
         </div>
 
         <div class="button-group">
@@ -485,21 +484,10 @@
           criteriaList.appendChild(div);
         });
 
-        // Populate grade level dropdown
-        var gradeSelect = document.getElementById('targetGrade');
-        gradeSelect.innerHTML = '';
-
-        result.gradeLevels.forEach(function(grade) {
-          var option = document.createElement('option');
-          option.value = grade;
-          option.textContent = grade;
-          gradeSelect.appendChild(option);
-        });
-
         // Show the criteria section
         document.getElementById('criteriaSection').style.display = 'block';
 
-        showStatus('Rubric loaded successfully! Found ' + result.criteria.length + ' criteria.', 'success');
+        showStatus('Rubric loaded successfully! Found ' + result.criteria.length + ' criteria. Will analyze against highest grade level.', 'success');
       } else {
         showStatus(result.error || 'Failed to load rubric.', 'error');
       }
@@ -529,8 +517,6 @@
         return;
       }
 
-      var targetGrade = document.getElementById('targetGrade').value;
-
       // Show loading state
       document.getElementById('loadingText').textContent = 'Analyzing with rubric...';
       document.getElementById('loading').style.display = 'block';
@@ -538,11 +524,11 @@
       document.getElementById('legend').classList.remove('visible');
       document.getElementById('analyzeRubricBtn').disabled = true;
 
-      // Call the server-side function
+      // Call the server-side function (targetGrade is auto-detected as highest)
       google.script.run
         .withSuccessHandler(onRubricAnalysisSuccess)
         .withFailureHandler(onRubricAnalysisFailure)
-        .analyzeDocumentWithRubric(selectedCriteria, targetGrade, loadedRubricData);
+        .analyzeDocumentWithRubric(selectedCriteria, loadedRubricData);
     }
 
     function onRubricAnalysisSuccess(result) {
