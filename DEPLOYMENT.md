@@ -1,10 +1,113 @@
-# Deployment Guide: Claude AI Rubric Analyser for Slides (Private Workspace Add-on)
+# Deployment Guide: Claude AI Rubric Analyser for Slides
 
-This guide walks you through deploying the Claude AI Rubric Analyser as a **private** Google Workspace Add-on for Google Slides that you can share with specific users.
+This guide provides deployment options for the Claude AI Rubric Analyser. We recommend the **container-bound script** approach as it's simpler and more reliable.
 
-## Overview
+## Recommended: Container-Bound Script (Per-Presentation Installation)
 
-This deployment will create a private add-on that:
+This is the **easiest and most reliable method**. The add-on is attached to specific presentations but can be easily copied.
+
+### Method 1: Direct Installation in a Presentation
+
+**Best for: Quick setup, testing, or single-user use**
+
+1. **Open Google Slides**
+   - Open any Google Slides presentation where you want to use the add-on
+   - This presentation will become your "template"
+
+2. **Open Apps Script**
+   - Click **Extensions** → **Apps Script**
+   - This opens the script editor
+
+3. **Add Code.gs**
+   - Delete any existing code in the editor
+   - Copy the entire contents of `Code.gs` from this repository
+   - Paste it into the editor
+   - The file should already be named "Code.gs"
+
+4. **Add Sidebar.html**
+   - Click the **+** button next to "Files"
+   - Select **HTML**
+   - Name it exactly: `Sidebar` (no file extension)
+   - Copy the entire contents of `Sidebar.html` from this repository
+   - Paste it into the editor
+
+5. **Configure the Manifest**
+   - Click **Project Settings** (gear icon in left sidebar)
+   - Check "Show 'appsscript.json' manifest file in editor"
+   - Go back to the Editor (click **<>** icon)
+   - You should now see `appsscript.json` in the files list
+   - Click it and replace the entire contents with the `appsscript.json` from this repository
+
+6. **Save the Project**
+   - Click the save icon (💾) or press Ctrl+S (Cmd+S on Mac)
+   - Name your project: "Claude AI Rubric Analyser"
+
+7. **Close and Reopen the Presentation**
+   - Close the presentation completely
+   - Reopen it
+   - You should see "Claude AI" in the menu bar (under Extensions or as a top-level menu)
+
+8. **Set Your API Key**
+   - Click **Claude AI** → **Set API Key**
+   - Enter your Claude API key
+   - Click OK
+
+9. **Grant Permissions**
+   - First time you use it, you'll see an authorization dialog
+   - Click **Continue** and **Allow**
+   - If you see "App isn't verified", click **Advanced** → **Go to [Project Name] (unsafe)**
+   - This is normal for personal scripts
+
+### Method 2: Make a Template Presentation
+
+Once you have the add-on working in one presentation:
+
+1. **Create your template**
+   - The presentation with the add-on installed is now your template
+   - Add any standard slides, layouts, or branding you want
+
+2. **Share the template**
+   - Option A: Share the presentation with others (they get edit/view access)
+   - Option B: Make a copy for each user: File → Make a copy
+   - Option C: Use as a template: Each time you need the add-on, make a copy of this presentation
+
+3. **Everyone who makes a copy gets the add-on**
+   - The script is copied along with the presentation
+   - They'll need to authorize it the first time they use it
+   - They'll need their own Claude API key (or you can set up a shared key in the script)
+
+### Using the Shared API Key Approach
+
+If you want all users to use the same API key (centralized billing):
+
+1. In the Apps Script editor, click **Project Settings** (gear icon)
+2. Scroll to **Script Properties**
+3. Click **Add script property**
+4. Property name: `CLAUDE_API_KEY`
+5. Value: Your actual Claude API key
+6. Click **Save**
+
+Now the add-on will use this key for all users who copy the presentation.
+
+---
+
+## Alternative: Google Workspace Add-on (All Presentations)
+
+**⚠️ Advanced Method - May Not Work for All Users**
+
+This method attempts to make the add-on appear in ALL presentations automatically. However, based on user testing, Test Deployments may not work consistently across different Google accounts and configurations.
+
+**Only proceed with this method if:**
+- You have Google Workspace (not personal Google account)
+- You need the add-on in ALL presentations automatically
+- You're willing to troubleshoot deployment issues
+- The container-bound method above doesn't meet your needs
+
+**Otherwise, use the container-bound method above** (it's simpler and more reliable).
+
+### Overview
+
+This deployment attempts to create a private add-on that:
 - Appears automatically in the Add-ons menu for all Google Slides presentations
 - Can be installed by specific users you share the deployment link with
 - Uses your existing Google Cloud Project
