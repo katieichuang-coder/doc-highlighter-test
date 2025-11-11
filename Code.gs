@@ -47,7 +47,62 @@ function showSidebar() {
 }
 
 /**
+ * Extracts text from a group of shapes (recursively handles nested groups)
+ * @param {Group} group - The group object from Google Slides
+ * @return {string} Extracted text from the group
+ */
+function extractTextFromGroup(group) {
+  var text = '';
+  var children = group.getChildren();
+
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    var childType = child.getPageElementType();
+
+    if (childType === SlidesApp.PageElementType.SHAPE) {
+      var shape = child.asShape();
+      if (shape.getText) {
+        var shapeText = shape.getText().asString();
+        if (shapeText.trim().length > 0) {
+          text += shapeText + '\n';
+        }
+      }
+    } else if (childType === SlidesApp.PageElementType.GROUP) {
+      // Recursively extract text from nested groups
+      text += extractTextFromGroup(child.asGroup());
+    }
+  }
+
+  return text;
+}
+
+/**
+ * Extracts text from a table
+ * @param {Table} table - The table object from Google Slides
+ * @return {string} Extracted text from the table
+ */
+function extractTextFromTable(table) {
+  var text = '';
+  var numRows = table.getNumRows();
+  var numCols = table.getNumColumns();
+
+  for (var row = 0; row < numRows; row++) {
+    for (var col = 0; col < numCols; col++) {
+      var cell = table.getCell(row, col);
+      var cellText = cell.getText().asString();
+      if (cellText.trim().length > 0) {
+        text += cellText + ' ';
+      }
+    }
+    text += '\n';
+  }
+
+  return text;
+}
+
+/**
  * Gets the full text content of the current presentation
+ * Extracts text from shapes, groups (including flowcharts/diagrams), and tables
  */
 function getPresentationText() {
   var presentation = SlidesApp.getActivePresentation();
@@ -56,8 +111,9 @@ function getPresentationText() {
 
   for (var i = 0; i < slides.length; i++) {
     var slide = slides[i];
-    var shapes = slide.getShapes();
 
+    // Extract text from regular shapes
+    var shapes = slide.getShapes();
     for (var j = 0; j < shapes.length; j++) {
       var shape = shapes[j];
       if (shape.getText) {
@@ -65,6 +121,24 @@ function getPresentationText() {
         if (text.trim().length > 0) {
           fullText += text + '\n';
         }
+      }
+    }
+
+    // Extract text from groups (flowcharts, diagrams, etc.)
+    var groups = slide.getGroups();
+    for (var j = 0; j < groups.length; j++) {
+      var groupText = extractTextFromGroup(groups[j]);
+      if (groupText.trim().length > 0) {
+        fullText += groupText;
+      }
+    }
+
+    // Extract text from tables
+    var tables = slide.getTables();
+    for (var j = 0; j < tables.length; j++) {
+      var tableText = extractTextFromTable(tables[j]);
+      if (tableText.trim().length > 0) {
+        fullText += tableText;
       }
     }
   }
@@ -373,7 +447,90 @@ function findTextOccurrences(text, searchText) {
 }
 
 /**
+ * Searches and highlights text within a group (recursively)
+ * @param {Group} group - The group to search
+ * @param {string} textToHighlight - Text to find
+ * @param {string} color - Highlight color
+ * @param {string} location - Location description for logging
+ * @return {number} Number of highlights applied
+ */
+function highlightInGroup(group, textToHighlight, color, location) {
+  var count = 0;
+  var children = group.getChildren();
+
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    var childType = child.getPageElementType();
+
+    if (childType === SlidesApp.PageElementType.SHAPE) {
+      var shape = child.asShape();
+      if (shape.getText) {
+        var textRange = shape.getText();
+        var shapeText = textRange.asString();
+        var occurrences = findTextOccurrences(shapeText, textToHighlight);
+
+        if (occurrences.length > 0) {
+          Logger.log('Found ' + occurrences.length + ' occurrence(s) in ' + location + ', group shape ' + (i + 1));
+          for (var k = 0; k < occurrences.length; k++) {
+            try {
+              var rangeToHighlight = textRange.getRange(occurrences[k].start, occurrences[k].end);
+              rangeToHighlight.getTextStyle().setBackgroundColor(color);
+              count++;
+            } catch (e) {
+              Logger.log('Error highlighting in group: ' + e.toString());
+            }
+          }
+        }
+      }
+    } else if (childType === SlidesApp.PageElementType.GROUP) {
+      count += highlightInGroup(child.asGroup(), textToHighlight, color, location + ', nested group');
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Searches and highlights text within a table
+ * @param {Table} table - The table to search
+ * @param {string} textToHighlight - Text to find
+ * @param {string} color - Highlight color
+ * @param {string} location - Location description for logging
+ * @return {number} Number of highlights applied
+ */
+function highlightInTable(table, textToHighlight, color, location) {
+  var count = 0;
+  var numRows = table.getNumRows();
+  var numCols = table.getNumColumns();
+
+  for (var row = 0; row < numRows; row++) {
+    for (var col = 0; col < numCols; col++) {
+      var cell = table.getCell(row, col);
+      var textRange = cell.getText();
+      var cellText = textRange.asString();
+      var occurrences = findTextOccurrences(cellText, textToHighlight);
+
+      if (occurrences.length > 0) {
+        Logger.log('Found ' + occurrences.length + ' occurrence(s) in ' + location + ', table cell [' + row + ',' + col + ']');
+        for (var k = 0; k < occurrences.length; k++) {
+          try {
+            var rangeToHighlight = textRange.getRange(occurrences[k].start, occurrences[k].end);
+            rangeToHighlight.getTextStyle().setBackgroundColor(color);
+            count++;
+          } catch (e) {
+            Logger.log('Error highlighting in table: ' + e.toString());
+          }
+        }
+      }
+    }
+  }
+
+  return count;
+}
+
+/**
  * Highlights text segments in the presentation
+ * Searches in shapes, groups (flowcharts/diagrams), and tables
  * @param {Array} highlights - Array of highlight objects with 'text' and 'reason' properties
  * @return {Object} Result with highlight count
  */
@@ -404,49 +561,66 @@ function highlightTextSegments(highlights) {
     Logger.log('Text length: ' + textToHighlight.length + ' characters');
 
     var foundAny = false;
+    var segmentHighlightCount = 0;
 
-    // Search through all slides and shapes
+    // Search through all slides
     for (var slideIndex = 0; slideIndex < slides.length; slideIndex++) {
       var slide = slides[slideIndex];
-      var shapes = slide.getShapes();
+      var location = 'slide ' + (slideIndex + 1);
 
+      // Search in regular shapes
+      var shapes = slide.getShapes();
       for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
         var shape = shapes[shapeIndex];
-
-        if (!shape.getText) {
-          continue;
-        }
+        if (!shape.getText) continue;
 
         var textRange = shape.getText();
         var shapeText = textRange.asString();
-
-        // Find all occurrences of the text in this shape
         var occurrences = findTextOccurrences(shapeText, textToHighlight);
 
         if (occurrences.length > 0) {
-          Logger.log('Found ' + occurrences.length + ' occurrence(s) in slide ' + (slideIndex + 1) + ', shape ' + (shapeIndex + 1));
-
+          Logger.log('Found ' + occurrences.length + ' occurrence(s) in ' + location + ', shape ' + (shapeIndex + 1));
           for (var k = 0; k < occurrences.length; k++) {
-            var occurrence = occurrences[k];
             try {
-              // Get the specific text range and apply highlight
-              var rangeToHighlight = textRange.getRange(occurrence.start, occurrence.end);
+              var rangeToHighlight = textRange.getRange(occurrences[k].start, occurrences[k].end);
               rangeToHighlight.getTextStyle().setBackgroundColor(highlightColor);
-              highlightCount++;
+              segmentHighlightCount++;
               foundAny = true;
             } catch (highlightError) {
-              Logger.log('Error highlighting at position ' + occurrence.start + '-' + occurrence.end + ': ' + highlightError.toString());
+              Logger.log('Error highlighting: ' + highlightError.toString());
             }
           }
         }
       }
+
+      // Search in groups (flowcharts, diagrams)
+      var groups = slide.getGroups();
+      for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        var count = highlightInGroup(groups[groupIndex], textToHighlight, highlightColor, location + ', group ' + (groupIndex + 1));
+        if (count > 0) {
+          segmentHighlightCount += count;
+          foundAny = true;
+        }
+      }
+
+      // Search in tables
+      var tables = slide.getTables();
+      for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+        var count = highlightInTable(tables[tableIndex], textToHighlight, highlightColor, location + ', table ' + (tableIndex + 1));
+        if (count > 0) {
+          segmentHighlightCount += count;
+          foundAny = true;
+        }
+      }
     }
+
+    highlightCount += segmentHighlightCount;
 
     if (!foundAny) {
       Logger.log('Result: NOT FOUND in any slide');
       notFoundCount++;
     } else {
-      Logger.log('Result: Successfully highlighted segment');
+      Logger.log('Result: Successfully highlighted ' + segmentHighlightCount + ' occurrence(s)');
     }
   }
 
@@ -462,7 +636,74 @@ function highlightTextSegments(highlights) {
 }
 
 /**
+ * Clears highlights from a group recursively
+ * @param {Group} group - The group to clear
+ * @return {number} Number of elements cleared
+ */
+function clearHighlightsInGroup(group) {
+  var count = 0;
+  var children = group.getChildren();
+
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    var childType = child.getPageElementType();
+
+    if (childType === SlidesApp.PageElementType.SHAPE) {
+      var shape = child.asShape();
+      if (shape.getText) {
+        try {
+          var textRange = shape.getText();
+          var textLength = textRange.asString().length;
+          if (textLength > 0) {
+            var fullRange = textRange.getRange(0, textLength);
+            fullRange.getTextStyle().setBackgroundColorTransparent();
+            count++;
+          }
+        } catch (e) {
+          Logger.log('Error clearing highlight in group shape: ' + e.toString());
+        }
+      }
+    } else if (childType === SlidesApp.PageElementType.GROUP) {
+      count += clearHighlightsInGroup(child.asGroup());
+    }
+  }
+
+  return count;
+}
+
+/**
+ * Clears highlights from a table
+ * @param {Table} table - The table to clear
+ * @return {number} Number of cells cleared
+ */
+function clearHighlightsInTable(table) {
+  var count = 0;
+  var numRows = table.getNumRows();
+  var numCols = table.getNumColumns();
+
+  for (var row = 0; row < numRows; row++) {
+    for (var col = 0; col < numCols; col++) {
+      try {
+        var cell = table.getCell(row, col);
+        var textRange = cell.getText();
+        var textLength = textRange.asString().length;
+        if (textLength > 0) {
+          var fullRange = textRange.getRange(0, textLength);
+          fullRange.getTextStyle().setBackgroundColorTransparent();
+          count++;
+        }
+      } catch (e) {
+        Logger.log('Error clearing highlight in table cell: ' + e.toString());
+      }
+    }
+  }
+
+  return count;
+}
+
+/**
  * Clears all highlights from the presentation
+ * Clears from shapes, groups (flowcharts/diagrams), and tables
  */
 function clearHighlights() {
   try {
@@ -472,44 +713,52 @@ function clearHighlights() {
 
     Logger.log('Clearing highlights from presentation');
 
-    // Iterate through all slides and shapes
+    // Iterate through all slides
     for (var i = 0; i < slides.length; i++) {
       var slide = slides[i];
-      var shapes = slide.getShapes();
 
+      // Clear from regular shapes
+      var shapes = slide.getShapes();
       for (var j = 0; j < shapes.length; j++) {
         var shape = shapes[j];
-
-        if (!shape.getText) {
-          continue;
-        }
+        if (!shape.getText) continue;
 
         try {
           var textRange = shape.getText();
           var textLength = textRange.asString().length;
-
           if (textLength > 0) {
-            // Use setBackgroundColorTransparent() to properly clear highlights
-            try {
-              var fullRange = textRange.getRange(0, textLength);
-              var textStyle = fullRange.getTextStyle();
-
-              // This is the correct way to clear backgrounds in Slides!
-              textStyle.setBackgroundColorTransparent();
-
-              clearedCount++;
-              Logger.log('Cleared highlights in slide ' + (i+1) + ', shape ' + (j+1));
-            } catch (clearError) {
-              Logger.log('Failed to clear slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
-            }
+            var fullRange = textRange.getRange(0, textLength);
+            fullRange.getTextStyle().setBackgroundColorTransparent();
+            clearedCount++;
+            Logger.log('Cleared highlights in slide ' + (i+1) + ', shape ' + (j+1));
           }
         } catch (clearError) {
-          Logger.log('Error clearing highlights in slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
+          Logger.log('Error clearing shape highlight: ' + clearError.toString());
+        }
+      }
+
+      // Clear from groups
+      var groups = slide.getGroups();
+      for (var j = 0; j < groups.length; j++) {
+        var count = clearHighlightsInGroup(groups[j]);
+        if (count > 0) {
+          clearedCount += count;
+          Logger.log('Cleared ' + count + ' shapes in slide ' + (i+1) + ', group ' + (j+1));
+        }
+      }
+
+      // Clear from tables
+      var tables = slide.getTables();
+      for (var j = 0; j < tables.length; j++) {
+        var count = clearHighlightsInTable(tables[j]);
+        if (count > 0) {
+          clearedCount += count;
+          Logger.log('Cleared ' + count + ' cells in slide ' + (i+1) + ', table ' + (j+1));
         }
       }
     }
 
-    Logger.log('Successfully cleared highlights from ' + clearedCount + ' shapes');
+    Logger.log('Successfully cleared highlights from ' + clearedCount + ' element(s)');
 
     return {
       success: true,
@@ -1075,6 +1324,7 @@ function parseRubricResponse(responseText) {
 
 /**
  * Highlights text segments with different colors based on criteria (Slides version)
+ * Searches in shapes, groups (flowcharts/diagrams), and tables
  * @param {Object} criteriaResults - Object mapping criterion names to their highlights
  * @param {Object} colorMap - Object mapping criterion names to colors
  * @return {Object} Result with highlight count
@@ -1109,49 +1359,66 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
       Logger.log('Text: "' + textToHighlight + '"');
 
       var foundAny = false;
+      var segmentHighlightCount = 0;
 
-      // Search through all slides and shapes
+      // Search through all slides
       for (var slideIndex = 0; slideIndex < slides.length; slideIndex++) {
         var slide = slides[slideIndex];
-        var shapes = slide.getShapes();
+        var location = 'slide ' + (slideIndex + 1);
 
+        // Search in regular shapes
+        var shapes = slide.getShapes();
         for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
           var shape = shapes[shapeIndex];
-
-          if (!shape.getText) {
-            continue;
-          }
+          if (!shape.getText) continue;
 
           var textRange = shape.getText();
           var shapeText = textRange.asString();
-
-          // Find all occurrences of the text in this shape
           var occurrences = findTextOccurrences(shapeText, textToHighlight);
 
           if (occurrences.length > 0) {
-            Logger.log('Found ' + occurrences.length + ' occurrence(s) in slide ' + (slideIndex + 1) + ', shape ' + (shapeIndex + 1));
-
+            Logger.log('Found ' + occurrences.length + ' occurrence(s) in ' + location + ', shape ' + (shapeIndex + 1));
             for (var k = 0; k < occurrences.length; k++) {
-              var occurrence = occurrences[k];
               try {
-                // Get the specific text range and apply highlight with criterion color
-                var rangeToHighlight = textRange.getRange(occurrence.start, occurrence.end);
+                var rangeToHighlight = textRange.getRange(occurrences[k].start, occurrences[k].end);
                 rangeToHighlight.getTextStyle().setBackgroundColor(color);
-                highlightCount++;
+                segmentHighlightCount++;
                 foundAny = true;
               } catch (highlightError) {
-                Logger.log('Error highlighting at position ' + occurrence.start + '-' + occurrence.end + ': ' + highlightError.toString());
+                Logger.log('Error highlighting: ' + highlightError.toString());
               }
             }
           }
         }
+
+        // Search in groups (flowcharts, diagrams)
+        var groups = slide.getGroups();
+        for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+          var count = highlightInGroup(groups[groupIndex], textToHighlight, color, location + ', group ' + (groupIndex + 1));
+          if (count > 0) {
+            segmentHighlightCount += count;
+            foundAny = true;
+          }
+        }
+
+        // Search in tables
+        var tables = slide.getTables();
+        for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
+          var count = highlightInTable(tables[tableIndex], textToHighlight, color, location + ', table ' + (tableIndex + 1));
+          if (count > 0) {
+            segmentHighlightCount += count;
+            foundAny = true;
+          }
+        }
       }
+
+      highlightCount += segmentHighlightCount;
 
       if (!foundAny) {
         Logger.log('Result: NOT FOUND in any slide');
         notFoundCount++;
       } else {
-        Logger.log('✓ Highlighted with ' + color);
+        Logger.log('✓ Highlighted ' + segmentHighlightCount + ' occurrence(s) with ' + color);
       }
     }
   }
