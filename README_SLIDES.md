@@ -1,11 +1,11 @@
-# Claude AI Rubric Analyzer for Google Slides
+# Claude AI Rubric Analyser for Google Slides
 
-A Google Workspace Add-on that integrates Claude AI with Google Slides to analyze presentations against rubrics and highlight content with multiple colors based on criteria.
+A Google Workspace Add-on that integrates Claude AI with Google Slides to analyse presentations against rubrics and highlight content with multiple colours based on criteria.
 
 ## Features
 
 - **Automatic Add-on Integration**: Appears in every Google Slides presentation once installed
-- **Rubric-Based Analysis**: Load rubrics from Google Docs tables and analyze presentations against specific criteria
+- **Rubric-Based Analysis**: Load rubrics from Google Docs tables and analyse presentations against specific criteria
 - **Multi-Criteria Support**: Handle complex rubric structures including:
   - Simple criteria lists (Pattern A)
   - Sub-criteria with merged cells (Pattern B)
@@ -14,9 +14,9 @@ A Google Workspace Add-on that integrates Claude AI with Google Slides to analyz
   - Regular text boxes and shapes
   - Grouped objects (flowcharts, diagrams)
   - Tables within slides
-- **Color-Coded Highlighting**: Highlights text segments with different colors for each criterion
-- **Flexible Criteria Selection**: Choose which criteria to analyze
-- **Auto-Grade Detection**: Automatically analyzes against the highest grade level in each criterion
+- **Colour-Coded Highlighting**: Highlights text segments with different colours for each criterion
+- **Flexible Criteria Selection**: Choose which criteria to analyse
+- **Auto-Grade Detection**: Automatically analyses against the highest grade level in each criterion
 
 ## How It Works
 
@@ -24,9 +24,9 @@ A Google Workspace Add-on that integrates Claude AI with Google Slides to analyz
 2. Accesses the "Claude AI" menu (appears automatically for installed users)
 3. Opens the sidebar and enters a Google Doc ID containing rubric tables
 4. Loads the rubric - criteria appear as checkboxes (unchecked by default)
-5. Selects which criteria to analyze
-6. Claude AI analyzes the presentation text against selected criteria at the highest grade level
-7. Matching text is highlighted with different colors for each criterion
+5. Selects which criteria to analyse
+6. Claude AI analyses the presentation text against selected criteria at the highest grade level
+7. Matching text is highlighted with different colours for each criterion
 8. Users can clear highlights and criteria selections to start fresh
 
 ## Rubric Structure Support
@@ -60,14 +60,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 1. Install the add-on (via shared deployment link or Apps Script project)
 2. Open any Google Slides presentation
 3. Look for "Claude AI" in the menu bar
-4. Click "Claude AI" → "Analyze Presentation"
+4. Click "Claude AI" → "Analyse Presentation"
 5. Set your API key if needed: "Claude AI" → "Set API Key"
 
 ## Usage
 
 ### 1. Load a Rubric
 
-1. Open the sidebar: **Claude AI** → **Analyze Presentation**
+1. Open the sidebar: **Claude AI** → **Analyse Presentation**
 2. Enter a Google Doc ID containing rubric tables
    - Example: `1jEEDM1kI1ondibbdlgm4WvnaxDBKmE9Q6Nsm2Pbyp6k`
    - The Doc must be accessible to you (at least View access)
@@ -75,25 +75,25 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 4. Wait for criteria to load
 5. All criteria checkboxes will be unchecked by default
 
-### 2. Select Criteria to Analyze
+### 2. Select Criteria to Analyse
 
-1. Check the boxes next to criteria you want to analyze
+1. Check the boxes next to criteria you want to analyse
 2. You can select one or multiple criteria
-3. Each criterion will be highlighted in a different color
+3. Each criterion will be highlighted in a different colour
 
-### 3. Analyze the Presentation
+### 3. Analyse the Presentation
 
-1. Click **Analyze with Rubric**
-2. Wait for Claude to analyze the presentation (may take a few seconds)
-3. Text segments will be highlighted with colors matching each criterion
-4. A legend will appear showing which color corresponds to which criterion
+1. Click **Analyse with Rubric**
+2. Wait for Claude to analyse the presentation (may take a few seconds)
+3. Text segments will be highlighted with colours matching each criterion
+4. A legend will appear showing which colour corresponds to which criterion
 5. The status message will show how many segments were highlighted
 
 ### 4. Clear Highlights
 
 1. Click **Clear Highlights** to remove all highlighting
 2. This also unchecks all criteria checkboxes
-3. You can now select different criteria and re-analyze
+3. You can now select different criteria and re-analyse
 
 ## Technical Details
 
@@ -103,13 +103,13 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
   - Text extraction from shapes, groups, and tables
   - Rubric parsing with Pattern A/B detection
   - Claude API integration
-  - Multi-color highlighting
+  - Multi-colour highlighting
   - Clear highlights functionality
 - **Sidebar.html**: Client-side UI
   - Rubric loading interface
   - Criteria selection checkboxes
   - Analysis controls
-  - Color legend display
+  - Colour legend display
 - **appsscript.json**: Add-on manifest
   - OAuth scopes configuration
   - Add-on triggers (homepage, file scope)
@@ -144,14 +144,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 - `parseRubricTable()`: Parses rubric table structure (auto-detects Pattern A/B)
 - `analyzeDocumentWithRubric()`: Orchestrates Claude analysis
 - `callClaudeAPI()`: Handles API communication
-- `highlightTextSegmentsWithColors()`: Applies multi-color highlighting
+- `highlightTextSegmentsWithColors()`: Applies multi-colour highlighting
 - `highlightInGroup()`: Highlights text within grouped objects
 - `highlightInTable()`: Highlights text within table cells
 - `clearHighlights()`: Removes all highlighting from all element types
 
-### Highlight Colors
+### Highlight Colours
 
-The add-on cycles through these colors for different criteria:
+The add-on cycles through these colours for different criteria:
 
 1. 🟡 Yellow (#FFFF00)
 2. 🟢 Green (#00FF00)
@@ -224,10 +224,10 @@ The add-on cycles through these colors for different criteria:
 ## Limitations
 
 - Maximum presentation text length depends on Claude API limits
-- Very large presentations may need to be analyzed in sections
+- Very large presentations may need to be analysed in sections
 - Highlighting accuracy depends on exact text matching
 - Complex formatting may affect text extraction
-- Images and embedded objects (non-text) are not analyzed
+- Images and embedded objects (non-text) are not analysed
 
 ## Updates and Maintenance
 
@@ -252,7 +252,7 @@ For issues or questions:
 
 Potential features for future versions:
 
-- Custom color selection for criteria
+- Custom colour selection for criteria
 - Export analysis results to a report
 - Batch analysis of multiple presentations
 - More rubric table patterns

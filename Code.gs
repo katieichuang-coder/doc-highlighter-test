@@ -15,7 +15,7 @@ const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 function onOpen(e) {
   SlidesApp.getUi()
     .createMenu('Claude AI')
-    .addItem('Analyze Presentation', 'showSidebar')
+    .addItem('Analyse Presentation', 'showSidebar')
     .addItem('Set API Key', 'showApiKeyDialog')
     .addToUi();
 }
@@ -53,7 +53,7 @@ function showApiKeyDialog() {
  */
 function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('Claude AI Analyzer')
+    .setTitle('Claude AI Analyser')
     .setWidth(300);
   SlidesApp.getUi().showSidebar(html);
 }
@@ -159,7 +159,7 @@ function getPresentationText() {
 }
 
 /**
- * Analyzes the presentation using Claude API based on user prompt
+ * Analyses the presentation using Claude API based on user prompt
  * @param {string} userPrompt - The user's analysis request
  * @return {Object} Result object with success status and data
  */
@@ -179,12 +179,12 @@ function analyzeDocument(userPrompt) {
     if (!presentationText || presentationText.trim().length === 0) {
       return {
         success: false,
-        error: 'Presentation is empty. Please add some text to analyze.'
+        error: 'Presentation is empty. Please add some text to analyse.'
       };
     }
 
     // Construct the prompt for Claude
-    var systemPrompt = 'You are a presentation analysis assistant. Your task is to analyze the provided presentation text based on the user\'s request and identify specific text segments that match their criteria. ' +
+    var systemPrompt = 'You are a presentation analysis assistant. Your task is to analyse the provided presentation text based on the user\'s request and identify specific text segments that match their criteria. ' +
       'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
       '{\n' +
       '  "analysis": "Brief summary of what you found",\n' +
@@ -208,7 +208,7 @@ function analyzeDocument(userPrompt) {
 
     var userMessage = 'Presentation text:\n---\n' + presentationText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
-      'Analyze the presentation and identify text segments that match the criteria. ' +
+      'Analyse the presentation and identify text segments that match the criteria. ' +
       'For each match, extract the BEGINNING portion (first 5-10 words) so the start is clearly marked. ' +
       'Make sure the text matches EXACTLY as it appears in the presentation.';
 
@@ -462,7 +462,7 @@ function findTextOccurrences(text, searchText) {
  * Searches and highlights text within a group (recursively)
  * @param {Group} group - The group to search
  * @param {string} textToHighlight - Text to find
- * @param {string} color - Highlight color
+ * @param {string} color - Highlight colour
  * @param {string} location - Location description for logging
  * @return {number} Number of highlights applied
  */
@@ -506,7 +506,7 @@ function highlightInGroup(group, textToHighlight, color, location) {
  * Searches and highlights text within a table
  * @param {Table} table - The table to search
  * @param {string} textToHighlight - Text to find
- * @param {string} color - Highlight color
+ * @param {string} color - Highlight colour
  * @param {string} location - Location description for logging
  * @return {number} Number of highlights applied
  */
@@ -552,7 +552,7 @@ function highlightTextSegments(highlights) {
   var highlightCount = 0;
   var notFoundCount = 0;
 
-  // Yellow highlight color
+  // Yellow highlight colour
   var highlightColor = '#FFFF00';
 
   Logger.log('=== Starting highlighting process ===');
@@ -790,7 +790,7 @@ function clearHighlights() {
 // =============================================================================
 
 /**
- * Color palette for different criteria (10 distinct colors)
+ * Colour palette for different criteria (10 distinct colours)
  */
 const RUBRIC_COLORS = [
   '#FFFF00', // Yellow
@@ -1140,7 +1140,7 @@ function parseRubricTable(table, tableIndex) {
 }
 
 /**
- * Analyzes presentation using rubric-based criteria
+ * Analyses presentation using rubric-based criteria
  * Automatically uses the highest grade level (last in array) as the target
  * @param {Array} selectedCriteria - Array of selected criterion names
  * @param {Object} rubricData - The parsed rubric data
@@ -1162,7 +1162,7 @@ function analyzeDocumentWithRubric(selectedCriteria, rubricData) {
     if (!presentationText || presentationText.trim().length === 0) {
       return {
         success: false,
-        error: 'Presentation is empty. Please add some text to analyze.'
+        error: 'Presentation is empty. Please add some text to analyse.'
       };
     }
 
@@ -1171,7 +1171,7 @@ function analyzeDocumentWithRubric(selectedCriteria, rubricData) {
     Logger.log('Auto-detected target grade: ' + targetGrade);
 
     // Build the system prompt with rubric criteria
-    var systemPrompt = 'You are a presentation grading assistant using a rubric. Your task is to analyze the provided presentation text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
+    var systemPrompt = 'You are a presentation grading assistant using a rubric. Your task is to analyse the provided presentation text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
       'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
       '{\n' +
       '  "analysis": "Brief summary of the grading",\n' +
@@ -1335,10 +1335,10 @@ function parseRubricResponse(responseText) {
 }
 
 /**
- * Highlights text segments with different colors based on criteria (Slides version)
+ * Highlights text segments with different colours based on criteria (Slides version)
  * Searches in shapes, groups (flowcharts/diagrams), and tables
  * @param {Object} criteriaResults - Object mapping criterion names to their highlights
- * @param {Object} colorMap - Object mapping criterion names to colors
+ * @param {Object} colorMap - Object mapping criterion names to colours
  * @return {Object} Result with highlight count
  */
 function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
@@ -1347,7 +1347,7 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
   var highlightCount = 0;
   var notFoundCount = 0;
 
-  Logger.log('=== Starting multi-color highlighting for Slides ===');
+  Logger.log('=== Starting multi-colour highlighting for Slides ===');
 
   for (var criterionName in criteriaResults) {
     if (!criteriaResults.hasOwnProperty(criterionName)) continue;
@@ -1356,7 +1356,7 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
     var highlights = criterionData.highlights || [];
     var color = colorMap[criterionName] || '#FFFF00'; // Default to yellow
 
-    Logger.log('\nCriterion: ' + criterionName + ' (Color: ' + color + ')');
+    Logger.log('\nCriterion: ' + criterionName + ' (Colour: ' + color + ')');
     Logger.log('Segments to highlight: ' + highlights.length);
 
     for (var i = 0; i < highlights.length; i++) {
@@ -1435,7 +1435,7 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
     }
   }
 
-  Logger.log('\n=== Multi-color Highlighting Summary ===');
+  Logger.log('\n=== Multi-colour Highlighting Summary ===');
   Logger.log('Total highlighted: ' + highlightCount);
   Logger.log('Not found: ' + notFoundCount);
 
@@ -1450,7 +1450,7 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
 // =============================================================================
 
 /**
- * Diagnostic function to analyze rubric document structure
+ * Diagnostic function to analyse rubric document structure
  * Run this from the Apps Script editor to see the table structure
  * Go to View > Logs to see the output
  *
@@ -1483,7 +1483,7 @@ function diagnoseRubricStructure(documentId) {
     Logger.log('Found ' + tables.length + ' table(s) in document');
     Logger.log('');
 
-    // Analyze each table
+    // Analyse each table
     for (var tableIndex = 0; tableIndex < tables.length; tableIndex++) {
       var table = tables[tableIndex];
       Logger.log('=== TABLE ' + (tableIndex + 1) + ' ===');
@@ -1497,7 +1497,7 @@ function diagnoseRubricStructure(documentId) {
         continue;
       }
 
-      // Analyze header row
+      // Analyse header row
       var headerRow = table.getRow(0);
       var numCols = headerRow.getNumCells();
       Logger.log('Number of columns: ' + numCols);
@@ -1510,7 +1510,7 @@ function diagnoseRubricStructure(documentId) {
       }
       Logger.log('');
 
-      // Analyze first few data rows to understand structure
+      // Analyse first few data rows to understand structure
       var rowsToShow = Math.min(5, numRows - 1);
       Logger.log('FIRST ' + rowsToShow + ' DATA ROWS:');
 

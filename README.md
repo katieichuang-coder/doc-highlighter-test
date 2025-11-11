@@ -1,21 +1,21 @@
 # Google Docs Claude AI Integration
 
-A Google Apps Script that integrates Claude AI with Google Docs to analyze and highlight text based on user prompts. This tool adds AI-powered document analysis capabilities directly into your Google Docs interface.
+A Google Apps Script that integrates Claude AI with Google Docs to analyse and highlight text based on user prompts. This tool adds AI-powered document analysis capabilities directly into your Google Docs interface.
 
 ## Features
 
 - **Custom Menu**: Adds a "Claude AI" menu to Google Docs with easy access to analysis tools
 - **Sidebar Interface**: User-friendly sidebar for entering analysis prompts
-- **AI-Powered Analysis**: Leverages Claude AI to analyze document content based on your specific needs
+- **AI-Powered Analysis**: Leverages Claude AI to analyse document content based on your specific needs
 - **Smart Highlighting**: Automatically highlights relevant text in your document with yellow background
-- **Flexible Prompts**: Analyze documents for passive voice, technical jargon, complex sentences, grammar errors, action items, and more
+- **Flexible Prompts**: Analyse documents for passive voice, technical jargon, complex sentences, grammar errors, action items, and more
 
 ## How It Works
 
 1. User opens a Google Doc and accesses the Claude AI menu
-2. Opens the sidebar and enters a prompt describing what to analyze (e.g., "highlight all passive voice")
+2. Opens the sidebar and enters a prompt describing what to analyse (e.g., "highlight all passive voice")
 3. The script sends the document text and prompt to Claude API
-4. Claude analyzes the text and identifies segments matching the criteria
+4. Claude analyses the text and identifies segments matching the criteria
 5. The identified text is automatically highlighted in the document
 
 ## Setup Instructions
@@ -51,7 +51,7 @@ A Google Apps Script that integrates Claude AI with Google Docs to analyze and h
 
 6. **Save Your Project**
    - Click the save icon or press `Ctrl+S` (or `Cmd+S` on Mac)
-   - Give your project a name (e.g., "Claude AI Document Analyzer")
+   - Give your project a name (e.g., "Claude AI Document Analyser")
 
 7. **Set Your Claude API Key**
    - Go back to your Google Doc
@@ -71,12 +71,12 @@ A Google Apps Script that integrates Claude AI with Google Docs to analyze and h
 
 ### Basic Usage
 
-1. **Open the Analyzer**
-   - Click `Claude AI` > `Analyze Document` in your Google Doc menu
+1. **Open the Analyser**
+   - Click `Claude AI` > `Analyse Document` in your Google Doc menu
    - The sidebar will appear on the right side
 
 2. **Enter Your Prompt**
-   - Type what you want Claude to analyze in the text box
+   - Type what you want Claude to analyse in the text box
    - Examples:
      - "Highlight all instances of passive voice"
      - "Find and highlight all technical jargon"
@@ -84,8 +84,8 @@ A Google Apps Script that integrates Claude AI with Google Docs to analyze and h
      - "Identify and highlight any potential grammar errors"
      - "Highlight all action items or tasks mentioned"
 
-3. **Analyze**
-   - Click the "Analyze" button
+3. **Analyse**
+   - Click the "Analyse" button
    - Wait for Claude to process your document (this may take a few seconds)
    - Matching text will be highlighted in yellow
 
@@ -102,7 +102,7 @@ A Google Apps Script that integrates Claude AI with Google Docs to analyze and h
   - "Highlight all dates mentioned, like 'January 2024' or '01/15/2024'"
 
 - **Iterative Analysis**: You can run multiple analyses with different prompts
-  - First analyze for passive voice, then clear and analyze for complex sentences
+  - First analyse for passive voice, then clear and analyse for complex sentences
 
 - **Document Length**: For very long documents, the analysis may take longer. Consider breaking large documents into sections.
 
@@ -192,9 +192,9 @@ For issues or questions:
 ## Future Enhancements
 
 Potential features for future versions:
-- Multiple highlight colors based on different criteria
+- Multiple highlight colours based on different criteria
 - Batch processing of multiple documents
-- Custom highlighting colors
+- Custom highlighting colours
 - Export analysis results
 - Undo/redo functionality
 - More sophisticated text matching algorithms

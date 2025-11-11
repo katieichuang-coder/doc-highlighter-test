@@ -288,7 +288,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>Analyze Document with Claude AI</h2>
+    <h2>Analyse Document with Claude AI</h2>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -298,11 +298,11 @@
 
     <!-- Text Prompt Mode -->
     <div id="text-prompt" class="tab-content active">
-      <label for="userPrompt">What would you like Claude to analyze?</label>
+      <label for="userPrompt">What would you like Claude to analyse?</label>
       <textarea id="userPrompt" placeholder="Example: Highlight all instances where passive voice is used"></textarea>
 
       <div class="button-group">
-        <button class="primary-button" id="analyzeBtn" onclick="analyzeDocument()">Analyze</button>
+        <button class="primary-button" id="analyzeBtn" onclick="analyzeDocument()">Analyse</button>
         <button class="secondary-button" onclick="clearHighlights()">Clear Highlights</button>
       </div>
 
@@ -331,7 +331,7 @@
       <!-- Criteria selection (hidden until rubric is loaded) -->
       <div id="criteriaSection" style="display: none;">
         <div class="form-group">
-          <label>Select Criteria to Analyze:</label>
+          <label>Select Criteria to Analyse:</label>
           <div id="criteriaList" class="criteria-list visible"></div>
         </div>
 
@@ -340,7 +340,7 @@
         </div>
 
         <div class="button-group">
-          <button class="primary-button" id="analyzeRubricBtn" onclick="analyzeWithRubric()">Analyze with Rubric</button>
+          <button class="primary-button" id="analyzeRubricBtn" onclick="analyzeWithRubric()">Analyse with Rubric</button>
           <button class="secondary-button" onclick="clearHighlights()">Clear Highlights</button>
         </div>
       </div>
@@ -349,13 +349,13 @@
     <!-- Loading indicator -->
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p id="loadingText">Analyzing document...</p>
+      <p id="loadingText">Analysing document...</p>
     </div>
 
     <!-- Status messages -->
     <div class="status" id="status"></div>
 
-    <!-- Color legend (shown after rubric analysis) -->
+    <!-- Colour legend (shown after rubric analysis) -->
     <div class="legend" id="legend">
       <h3>Highlighting Legend:</h3>
       <div id="legendContent"></div>
@@ -392,12 +392,12 @@
       var prompt = document.getElementById('userPrompt').value.trim();
 
       if (!prompt) {
-        showStatus('Please enter a prompt describing what you want to analyze.', 'error');
+        showStatus('Please enter a prompt describing what you want to analyse.', 'error');
         return;
       }
 
       // Show loading state
-      document.getElementById('loadingText').textContent = 'Analyzing document...';
+      document.getElementById('loadingText').textContent = 'Analysing document...';
       document.getElementById('loading').style.display = 'block';
       document.getElementById('status').style.display = 'none';
       document.getElementById('legend').classList.remove('visible');
@@ -487,7 +487,7 @@
         // Show the criteria section
         document.getElementById('criteriaSection').style.display = 'block';
 
-        showStatus('Rubric loaded successfully! Found ' + result.criteria.length + ' criteria. Will analyze against highest grade level.', 'success');
+        showStatus('Rubric loaded successfully! Found ' + result.criteria.length + ' criteria. Will analyse against highest grade level.', 'success');
       } else {
         showStatus(result.error || 'Failed to load rubric.', 'error');
       }
@@ -513,12 +513,12 @@
       });
 
       if (selectedCriteria.length === 0) {
-        showStatus('Please select at least one criterion to analyze.', 'error');
+        showStatus('Please select at least one criterion to analyse.', 'error');
         return;
       }
 
       // Show loading state
-      document.getElementById('loadingText').textContent = 'Analyzing with rubric...';
+      document.getElementById('loadingText').textContent = 'Analysing with rubric...';
       document.getElementById('loading').style.display = 'block';
       document.getElementById('status').style.display = 'none';
       document.getElementById('legend').classList.remove('visible');
@@ -542,7 +542,7 @@
         }
         showStatus(message, 'success');
 
-        // Display color legend
+        // Display colour legend
         displayLegend(result.colorMap);
       } else {
         showStatus(result.error || 'An error occurred during rubric analysis.', 'error');

@@ -1,6 +1,6 @@
-# Deployment Guide: Claude AI Rubric Analyzer for Slides (Private Workspace Add-on)
+# Deployment Guide: Claude AI Rubric Analyser for Slides (Private Workspace Add-on)
 
-This guide walks you through deploying the Claude AI Rubric Analyzer as a **private** Google Workspace Add-on for Google Slides that you can share with specific users.
+This guide walks you through deploying the Claude AI Rubric Analyser as a **private** Google Workspace Add-on for Google Slides that you can share with specific users.
 
 ## Overview
 
@@ -61,7 +61,7 @@ This is critical for allowing users to install your add-on:
 3. Navigate to **APIs & Services** → **OAuth consent screen**
 4. Configure the consent screen:
    - **User Type**: Choose "Internal" (if you have Google Workspace) or "External"
-   - **App name**: "Claude AI Rubric Analyzer for Slides"
+   - **App name**: "Claude AI Rubric Analyser for Slides"
    - **User support email**: Your email
    - **Developer contact email**: Your email
    - **App logo**: Upload a logo (optional but recommended)
@@ -98,7 +98,7 @@ Note: For production, you'll need to submit for verification or stay in "Testing
 2. Click the gear icon ⚙️ next to "Select type"
 3. Choose **Add-on**
 4. Fill in the deployment details:
-   - **Add-on title**: Claude AI Rubric Analyzer for Slides
+   - **Add-on title**: Claude AI Rubric Analyser for Slides
    - **Description**: AI-powered rubric analysis and highlighting for Google Slides presentations
    - **Post-install tip** (optional): "Click 'Claude AI' menu or open the sidebar to get started"
    - **Help URL** (optional): Link to documentation
@@ -173,7 +173,7 @@ If you have Google Workspace:
 2. **First-time use**:
    - Open any Google Slides presentation
    - Look for **"Claude AI"** in the Add-ons menu or Extensions menu
-   - Click **"Claude AI"** → **"Analyze Presentation"**
+   - Click **"Claude AI"** → **"Analyse Presentation"**
    - The sidebar will open automatically
    - Set your API key using **"Claude AI"** → **"Set API Key"** (if not using shared script property)
 
@@ -188,7 +188,7 @@ If you have Google Workspace:
 
 1. Open a new Google Slides presentation
 2. Check that **"Claude AI"** appears in the menu bar
-3. Click **"Claude AI"** → **"Analyze Presentation"**
+3. Click **"Claude AI"** → **"Analyse Presentation"**
 4. The sidebar should open on the right
 5. Test loading a rubric:
    - Enter a Google Doc ID containing rubric tables
@@ -196,14 +196,14 @@ If you have Google Workspace:
    - Verify criteria appear as checkboxes
 6. Test analysis:
    - Select some criteria
-   - Click "Analyze with Rubric"
+   - Click "Analyse with Rubric"
    - Verify text highlighting works
 
 ## Configuration Notes
 
 ### Using Shared vs. User API Keys
 
-**Option 1: Shared API Key (Centralized)**
+**Option 1: Shared API Key (Centralised)**
 - Set `CLAUDE_API_KEY` in Script Properties (Project Settings)
 - All users use the same API key
 - Easier management, all API usage billed to one account
@@ -311,7 +311,7 @@ After successful deployment:
 1. ✅ Install and test the add-on yourself
 2. ✅ Share with a small group of test users
 3. ✅ Gather feedback and iterate
-4. ✅ Document any organization-specific usage guidelines
+4. ✅ Document any organisation-specific usage guidelines
 5. ✅ Roll out to all intended users
 6. ✅ Set up monitoring and support process
 

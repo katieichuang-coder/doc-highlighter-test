@@ -1,6 +1,6 @@
 # Claude AI Rubric-Based Grading for Google Docs
 
-This Google Apps Script adds rubric-based grading capabilities to Google Docs, allowing teachers to grade student work against standardized rubrics with color-coded highlighting.
+This Google Apps Script adds rubric-based grading capabilities to Google Docs, allowing teachers to grade student work against standardised rubrics with colour-coded highlighting.
 
 ## Features
 
@@ -10,10 +10,10 @@ This Google Apps Script adds rubric-based grading capabilities to Google Docs, a
 
 - **Rubric Support**:
   - Load rubrics from Google Docs with table structures
-  - Select specific criteria to analyze
+  - Select specific criteria to analyse
   - Choose target grade levels
-  - Color-coded highlighting (different color per criterion)
-  - Visual legend showing criterion-to-color mapping
+  - Colour-coded highlighting (different colour per criterion)
+  - Visual legend showing criterion-to-colour mapping
 
 - **Smart Text Matching**:
   - Handles quote/apostrophe variations (smart quotes vs straight quotes)
@@ -45,10 +45,10 @@ This Google Apps Script adds rubric-based grading capabilities to Google Docs, a
 ### Text Prompt Mode (Free-form Analysis)
 
 1. Open your Google Doc
-2. Go to **Claude AI > Analyze Document**
+2. Go to **Claude AI > Analyse Document**
 3. Select the **Text Prompt** tab
 4. Enter your analysis prompt (e.g., "Highlight passive voice")
-5. Click **Analyze**
+5. Click **Analyse**
 6. Claude will highlight matching text segments in yellow
 
 ### Rubric Mode (Structured Grading)
@@ -88,18 +88,18 @@ Create a Google Doc with a table in this format:
 #### Step 3: Load and Use the Rubric
 
 1. Open the student document you want to grade
-2. Go to **Claude AI > Analyze Document**
+2. Go to **Claude AI > Analyse Document**
 3. Select the **Rubric Mode** tab
 4. Paste your rubric Document ID
 5. Click **Load Rubric**
-6. Select which criteria to analyze (all selected by default)
+6. Select which criteria to analyse (all selected by default)
 7. Choose the target grade level
-8. Click **Analyze with Rubric**
+8. Click **Analyse with Rubric**
 
 #### Step 4: Review Results
 
-- Each criterion is highlighted in a different color
-- The color legend appears at the bottom showing which color matches which criterion
+- Each criterion is highlighted in a different colour
+- The colour legend appears at the bottom showing which colour matches which criterion
 - Claude identifies text segments that don't meet the target grade level
 - Each highlight represents an area for improvement
 
@@ -121,8 +121,8 @@ Create a Google Doc with a table in this format:
 1. Load the rubric
 2. Select criteria: Thesis Statement, Evidence, Grammar
 3. Set target: "Meets Standard"
-4. Analyze
-5. Review color-coded highlights for each criterion
+4. Analyse
+5. Review colour-coded highlights for each criterion
 
 ### Use Case 2: Writing Skills Assessment
 
@@ -139,12 +139,12 @@ Create a Google Doc with a table in this format:
 1. Load the rubric
 2. Select all criteria
 3. Set target: "Grade 4"
-4. Analyze
-5. Each criterion highlighted in different color
+4. Analyse
+5. Each criterion highlighted in different colour
 
-## Color Palette
+## Colour Palette
 
-The script uses 10 distinct colors for criteria:
+The script uses 10 distinct colours for criteria:
 1. Yellow (#FFFF00)
 2. Gold (#FFD700)
 3. Orange (#FFA500)
@@ -156,7 +156,7 @@ The script uses 10 distinct colors for criteria:
 9. Light Blue (#BFEFFF)
 10. Moccasin (#FFE4B5)
 
-If you select more than 10 criteria, colors will repeat.
+If you select more than 10 criteria, colours will repeat.
 
 ## Tips for Best Results
 
@@ -164,7 +164,7 @@ If you select more than 10 criteria, colors will repeat.
 
 2. **Use consistent terminology**: Use the same terms in your document and rubric
 
-3. **Select relevant criteria only**: Analyzing too many criteria at once may reduce accuracy
+3. **Select relevant criteria only**: Analysing too many criteria at once may reduce accuracy
 
 4. **Review manually**: Claude's analysis is a starting point; always review and adjust manually
 
@@ -183,7 +183,7 @@ If you select more than 10 criteria, colors will repeat.
 - **Check Target Grade**: Make sure the target grade matches a column header exactly
 - **Check Criteria Selection**: Ensure at least one criterion is selected
 - **Check Document Content**: Verify the document has text that matches the criteria
-- **Simplify Criteria**: Try analyzing one criterion at a time
+- **Simplify Criteria**: Try analysing one criterion at a time
 
 ### Wrong Text Highlighted
 
@@ -205,9 +205,9 @@ If you select more than 10 criteria, colors will repeat.
 | **Setup Time** | None | Create rubric document once |
 | **Consistency** | Varies by prompt | Consistent across all grading |
 | **Flexibility** | Very flexible | Structured by rubric |
-| **Color Coding** | Single color (yellow) | Multi-color by criterion |
+| **Colour Coding** | Single colour (yellow) | Multi-colour by criterion |
 | **Legend** | No legend needed | Automatic legend display |
-| **Use Case** | Quick checks, exploratory analysis | Formal grading, standardized assessment |
+| **Use Case** | Quick checks, exploratory analysis | Formal grading, standardised assessment |
 
 ## Example Rubrics
 
@@ -257,7 +257,7 @@ For issues or questions:
 
 ## Version Notes
 
-- **v2.0**: Added Rubric Mode with multi-color highlighting
+- **v2.0**: Added Rubric Mode with multi-colour highlighting
 - **v1.0**: Initial release with Text Prompt Mode
 
 ---
