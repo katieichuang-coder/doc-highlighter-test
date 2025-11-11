@@ -1,6 +1,6 @@
 /**
- * Google Docs Claude Integration
- * This script adds Claude AI capabilities to Google Docs for text analysis and highlighting
+ * Google Slides Claude Integration
+ * This script adds Claude AI capabilities to Google Slides for text analysis and highlighting
  */
 
 // Configuration - You must set your Claude API key in Script Properties
@@ -8,12 +8,12 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
- * Creates a custom menu in Google Docs when the document is opened
+ * Creates a custom menu in Google Slides when the presentation is opened
  */
 function onOpen() {
-  DocumentApp.getUi()
+  SlidesApp.getUi()
     .createMenu('Claude AI')
-    .addItem('Analyze Document', 'showSidebar')
+    .addItem('Analyze Presentation', 'showSidebar')
     .addItem('Set API Key', 'showApiKeyDialog')
     .addToUi();
 }
@@ -22,7 +22,7 @@ function onOpen() {
  * Displays a dialog to set the Claude API key
  */
 function showApiKeyDialog() {
-  var ui = DocumentApp.getUi();
+  var ui = SlidesApp.getUi();
   var result = ui.prompt(
     'Set Claude API Key',
     'Enter your Claude API key (it will be stored securely):',
@@ -43,20 +43,37 @@ function showSidebar() {
   var html = HtmlService.createHtmlOutputFromFile('Sidebar')
     .setTitle('Claude AI Analyzer')
     .setWidth(300);
-  DocumentApp.getUi().showSidebar(html);
+  SlidesApp.getUi().showSidebar(html);
 }
 
 /**
- * Gets the full text content of the current document
+ * Gets the full text content of the current presentation
  */
-function getDocumentText() {
-  var doc = DocumentApp.getActiveDocument();
-  var body = doc.getBody();
-  return body.getText();
+function getPresentationText() {
+  var presentation = SlidesApp.getActivePresentation();
+  var slides = presentation.getSlides();
+  var fullText = '';
+
+  for (var i = 0; i < slides.length; i++) {
+    var slide = slides[i];
+    var shapes = slide.getShapes();
+
+    for (var j = 0; j < shapes.length; j++) {
+      var shape = shapes[j];
+      if (shape.getText) {
+        var text = shape.getText().asString();
+        if (text.trim().length > 0) {
+          fullText += text + '\n';
+        }
+      }
+    }
+  }
+
+  return fullText.trim();
 }
 
 /**
- * Analyzes the document using Claude API based on user prompt
+ * Analyzes the presentation using Claude API based on user prompt
  * @param {string} userPrompt - The user's analysis request
  * @return {Object} Result object with success status and data
  */
@@ -71,22 +88,22 @@ function analyzeDocument(userPrompt) {
       };
     }
 
-    // Get document text
-    var documentText = getDocumentText();
-    if (!documentText || documentText.trim().length === 0) {
+    // Get presentation text
+    var presentationText = getPresentationText();
+    if (!presentationText || presentationText.trim().length === 0) {
       return {
         success: false,
-        error: 'Document is empty. Please add some text to analyze.'
+        error: 'Presentation is empty. Please add some text to analyze.'
       };
     }
 
     // Construct the prompt for Claude
-    var systemPrompt = 'You are a document analysis assistant. Your task is to analyze the provided document text based on the user\'s request and identify specific text segments that match their criteria. ' +
+    var systemPrompt = 'You are a presentation analysis assistant. Your task is to analyze the provided presentation text based on the user\'s request and identify specific text segments that match their criteria. ' +
       'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
       '{\n' +
       '  "analysis": "Brief summary of what you found",\n' +
       '  "highlights": [\n' +
-      '    {"text": "exact text from document to highlight", "reason": "why this matches the criteria"}\n' +
+      '    {"text": "exact text from presentation to highlight", "reason": "why this matches the criteria"}\n' +
       '  ]\n' +
       '}\n\n' +
       'CRITICAL HIGHLIGHTING RULES:\n' +
@@ -103,11 +120,11 @@ function analyzeDocument(userPrompt) {
       '3. Each "text" value must be a SHORT segment (5-10 words max)\n' +
       '4. No newlines (\\n) within text segments';
 
-    var userMessage = 'Document text:\n---\n' + documentText + '\n---\n\n' +
+    var userMessage = 'Presentation text:\n---\n' + presentationText + '\n---\n\n' +
       'User request: ' + userPrompt + '\n\n' +
-      'Analyze the document and identify text segments that match the criteria. ' +
+      'Analyze the presentation and identify text segments that match the criteria. ' +
       'For each match, extract the BEGINNING portion (first 5-10 words) so the start is clearly marked. ' +
-      'Make sure the text matches EXACTLY as it appears in the document.';
+      'Make sure the text matches EXACTLY as it appears in the presentation.';
 
 
     // Call Claude API
@@ -129,7 +146,7 @@ function analyzeDocument(userPrompt) {
 
     var message = 'Analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s).';
     if (highlightResult.notFoundCount > 0) {
-      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the document. ' +
+      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the presentation. ' +
         'Check the execution logs (View > Executions in Apps Script) for details.';
     }
 
@@ -299,11 +316,9 @@ function parseClaudeResponse(responseText) {
  * Converts text to a regex pattern with flexible punctuation matching
  * Quotes/apostrophes will match any variation
  * @param {string} text - The text to convert
- * @return {string} Regex pattern
+ * @return {RegExp} Regular expression object
  */
 function createFlexiblePunctuationPattern(text) {
-  // Use placeholders to handle quotes, then escape special chars, then restore quote patterns
-
   var SINGLE_QUOTE_PLACEHOLDER = '___SINGLE_QUOTE___';
   var DOUBLE_QUOTE_PLACEHOLDER = '___DOUBLE_QUOTE___';
 
@@ -317,24 +332,54 @@ function createFlexiblePunctuationPattern(text) {
   pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Step 3: Replace placeholders with flexible character classes
-  // Single backslash means JavaScript interprets Unicode escapes at string creation time
-  // This creates character classes with actual quote characters: ['`] and [""]
   pattern = pattern.replace(new RegExp(SINGLE_QUOTE_PLACEHOLDER, 'g'),
     '[\u0027\u2018\u2019\u0060]');
   pattern = pattern.replace(new RegExp(DOUBLE_QUOTE_PLACEHOLDER, 'g'),
     '[\u0022\u201C\u201D]');
 
-  return pattern;
+  return new RegExp(pattern, 'g');
 }
 
 /**
- * Highlights text segments in the document
+ * Finds all occurrences of a text pattern in a string
+ * @param {string} text - The text to search in
+ * @param {string} searchText - The text to find
+ * @return {Array} Array of {start, end} positions
+ */
+function findTextOccurrences(text, searchText) {
+  var matches = [];
+
+  // Try exact match first
+  var index = text.indexOf(searchText);
+  while (index !== -1) {
+    matches.push({start: index, end: index + searchText.length});
+    index = text.indexOf(searchText, index + 1);
+  }
+
+  // If no exact matches and text contains quotes, try regex pattern
+  if (matches.length === 0 && searchText.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
+    try {
+      var regex = createFlexiblePunctuationPattern(searchText);
+      var match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({start: match.index, end: match.index + match[0].length});
+      }
+    } catch (e) {
+      Logger.log('Regex search failed: ' + e.toString());
+    }
+  }
+
+  return matches;
+}
+
+/**
+ * Highlights text segments in the presentation
  * @param {Array} highlights - Array of highlight objects with 'text' and 'reason' properties
  * @return {Object} Result with highlight count
  */
 function highlightTextSegments(highlights) {
-  var doc = DocumentApp.getActiveDocument();
-  var body = doc.getBody();
+  var presentation = SlidesApp.getActivePresentation();
+  var slides = presentation.getSlides();
   var highlightCount = 0;
   var notFoundCount = 0;
 
@@ -358,120 +403,50 @@ function highlightTextSegments(highlights) {
     Logger.log('Reason: ' + reason);
     Logger.log('Text length: ' + textToHighlight.length + ' characters');
 
-    // Try exact match first
-    var searchResult = body.findText(textToHighlight);
-    var segmentHighlightCount = 0;
+    var foundAny = false;
 
-    if (searchResult === null) {
-      Logger.log('Result: NOT FOUND with exact match');
+    // Search through all slides and shapes
+    for (var slideIndex = 0; slideIndex < slides.length; slideIndex++) {
+      var slide = slides[slideIndex];
+      var shapes = slide.getShapes();
 
-      var foundWithFallback = false;
+      for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
+        var shape = shapes[shapeIndex];
 
-      // Fallback 1: If text contains quotes/apostrophes, use flexible regex pattern
-      if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
-        Logger.log('Trying fallback: flexible regex pattern');
-        try {
-          var regexPattern = createFlexiblePunctuationPattern(textToHighlight);
-          Logger.log('  Regex pattern: ' + regexPattern.substring(0, 100) + (regexPattern.length > 100 ? '...' : ''));
-
-          searchResult = body.findText(regexPattern);
-          if (searchResult !== null) {
-            Logger.log('✓ Found with flexible regex pattern');
-            foundWithFallback = true;
-          }
-        } catch (regexError) {
-          Logger.log('  Regex pattern failed: ' + regexError.toString());
+        if (!shape.getText) {
+          continue;
         }
-      }
 
-      // Fallback 2: If text contains newlines, try without them
-      if (!foundWithFallback && textToHighlight.includes('\n')) {
-        Logger.log('Trying fallback: removing newlines');
-        var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        var textRange = shape.getText();
+        var shapeText = textRange.asString();
 
-        // Try exact match
-        searchResult = body.findText(textWithoutNewlines);
-        if (searchResult !== null) {
-          Logger.log('✓ Found without newlines');
-          foundWithFallback = true;
-        } else if (textWithoutNewlines.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
-          // Try regex pattern on newline-removed text
-          try {
-            var regexPattern2 = createFlexiblePunctuationPattern(textWithoutNewlines);
-            searchResult = body.findText(regexPattern2);
-            if (searchResult !== null) {
-              Logger.log('✓ Found without newlines + regex pattern');
-              foundWithFallback = true;
-            }
-          } catch (regexError2) {
-            Logger.log('  Regex pattern failed: ' + regexError2.toString());
-          }
-        }
-      }
+        // Find all occurrences of the text in this shape
+        var occurrences = findTextOccurrences(shapeText, textToHighlight);
 
-      // Fallback 3: If text is long, try first 5-7 words
-      if (!foundWithFallback && textToHighlight.length > 50) {
-        Logger.log('Trying fallback: extracting first 5-7 words');
-        var words = textToHighlight.split(/\s+/);
-        if (words.length > 5) {
-          var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
+        if (occurrences.length > 0) {
+          Logger.log('Found ' + occurrences.length + ' occurrence(s) in slide ' + (slideIndex + 1) + ', shape ' + (shapeIndex + 1));
 
-          // Try exact match
-          searchResult = body.findText(shortPhrase);
-          if (searchResult !== null) {
-            Logger.log('✓ Found shorter phrase');
-            foundWithFallback = true;
-          } else if (shortPhrase.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
-            // Try regex pattern on shorter phrase
+          for (var k = 0; k < occurrences.length; k++) {
+            var occurrence = occurrences[k];
             try {
-              var regexPattern3 = createFlexiblePunctuationPattern(shortPhrase);
-              searchResult = body.findText(regexPattern3);
-              if (searchResult !== null) {
-                Logger.log('✓ Found shorter phrase + regex pattern');
-                foundWithFallback = true;
-              }
-            } catch (regexError3) {
-              Logger.log('  Regex pattern failed: ' + regexError3.toString());
+              // Get the specific text range and apply highlight
+              var rangeToHighlight = textRange.getRange(occurrence.start, occurrence.end);
+              rangeToHighlight.getTextStyle().setBackgroundColor(highlightColor);
+              highlightCount++;
+              foundAny = true;
+            } catch (highlightError) {
+              Logger.log('Error highlighting at position ' + occurrence.start + '-' + occurrence.end + ': ' + highlightError.toString());
             }
           }
-        }
-      }
-
-      if (!foundWithFallback) {
-        Logger.log('All fallback attempts failed - segment not found');
-        notFoundCount++;
-
-        // Log helpful debugging info
-        if (textToHighlight.includes('\n')) {
-          Logger.log('Note: Text contains newline characters');
-        }
-        if (textToHighlight.includes('  ')) {
-          Logger.log('Note: Text contains multiple spaces');
-        }
-        if (textToHighlight.length > 100) {
-          Logger.log('Note: Text is very long (' + textToHighlight.length + ' chars)');
         }
       }
     }
 
-    // If we found the text (either direct or fallback), highlight it
-    if (searchResult !== null) {
-      while (searchResult !== null) {
-        var element = searchResult.getElement();
-        var startOffset = searchResult.getStartOffset();
-        var endOffset = searchResult.getEndOffsetInclusive();
-
-        // Apply yellow background to the found text
-        if (element.asText) {
-          element.asText().setBackgroundColor(startOffset, endOffset, highlightColor);
-          segmentHighlightCount++;
-          highlightCount++;
-        }
-
-        // Find next occurrence
-        searchResult = body.findText(textToHighlight, searchResult);
-      }
-      Logger.log('Result: FOUND and highlighted ' + segmentHighlightCount + ' occurrence(s)');
+    if (!foundAny) {
+      Logger.log('Result: NOT FOUND in any slide');
+      notFoundCount++;
+    } else {
+      Logger.log('Result: Successfully highlighted segment');
     }
   }
 
@@ -487,22 +462,54 @@ function highlightTextSegments(highlights) {
 }
 
 /**
- * Clears all highlights from the document
+ * Clears all highlights from the presentation
  */
 function clearHighlights() {
   try {
-    var doc = DocumentApp.getActiveDocument();
-    var body = doc.getBody();
-    var bodyText = body.editAsText();
-    var textLength = bodyText.getText().length;
+    var presentation = SlidesApp.getActivePresentation();
+    var slides = presentation.getSlides();
+    var clearedCount = 0;
 
-    Logger.log('Clearing highlights from document (length: ' + textLength + ')');
+    Logger.log('Clearing highlights from presentation');
 
-    // Clear background color for the entire document range
-    if (textLength > 0) {
-      bodyText.setBackgroundColor(0, textLength - 1, null);
-      Logger.log('Successfully cleared highlights');
+    // Iterate through all slides and shapes
+    for (var i = 0; i < slides.length; i++) {
+      var slide = slides[i];
+      var shapes = slide.getShapes();
+
+      for (var j = 0; j < shapes.length; j++) {
+        var shape = shapes[j];
+
+        if (!shape.getText) {
+          continue;
+        }
+
+        try {
+          var textRange = shape.getText();
+          var textLength = textRange.asString().length;
+
+          if (textLength > 0) {
+            // Use setBackgroundColorTransparent() to properly clear highlights
+            try {
+              var fullRange = textRange.getRange(0, textLength);
+              var textStyle = fullRange.getTextStyle();
+
+              // This is the correct way to clear backgrounds in Slides!
+              textStyle.setBackgroundColorTransparent();
+
+              clearedCount++;
+              Logger.log('Cleared highlights in slide ' + (i+1) + ', shape ' + (j+1));
+            } catch (clearError) {
+              Logger.log('Failed to clear slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
+            }
+          }
+        } catch (clearError) {
+          Logger.log('Error clearing highlights in slide ' + (i+1) + ', shape ' + (j+1) + ': ' + clearError.toString());
+        }
+      }
     }
+
+    Logger.log('Successfully cleared highlights from ' + clearedCount + ' shapes');
 
     return {
       success: true,
@@ -539,6 +546,7 @@ const RUBRIC_COLORS = [
 
 /**
  * Reads and parses a rubric document by its ID
+ * NOTE: Rubric must be a Google Doc (not Slides), even when grading presentations
  * @param {string} documentId - The ID of the Google Doc containing the rubric
  * @return {Object} Parsed rubric data or error
  */
@@ -546,7 +554,7 @@ function readRubricDocument(documentId) {
   try {
     Logger.log('Reading rubric document: ' + documentId);
 
-    // Open the document
+    // Open the document (rubric is always a Google Doc with a table)
     var rubricDoc = DocumentApp.openById(documentId);
     var body = rubricDoc.getBody();
 
@@ -741,7 +749,7 @@ function parseRubricTable(table, tableIndex) {
 }
 
 /**
- * Analyzes document using rubric-based criteria
+ * Analyzes presentation using rubric-based criteria
  * @param {Array} selectedCriteria - Array of selected criterion names
  * @param {string} targetGrade - The target grade level to check against
  * @param {Object} rubricData - The parsed rubric data
@@ -758,17 +766,17 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
       };
     }
 
-    // Get document text
-    var documentText = getDocumentText();
-    if (!documentText || documentText.trim().length === 0) {
+    // Get presentation text
+    var presentationText = getPresentationText();
+    if (!presentationText || presentationText.trim().length === 0) {
       return {
         success: false,
-        error: 'Document is empty. Please add some text to analyze.'
+        error: 'Presentation is empty. Please add some text to analyze.'
       };
     }
 
     // Build the system prompt with rubric criteria
-    var systemPrompt = 'You are a document grading assistant using a rubric. Your task is to analyze the provided document text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
+    var systemPrompt = 'You are a presentation grading assistant using a rubric. Your task is to analyze the provided presentation text against specific rubric criteria and identify text segments that need improvement or meet/don\'t meet the target grade level.\n\n' +
       'Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):\n' +
       '{\n' +
       '  "analysis": "Brief summary of the grading",\n' +
@@ -776,7 +784,7 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
       '    "Criterion Name": {\n' +
       '      "overallAssessment": "Brief assessment for this criterion",\n' +
       '      "highlights": [\n' +
-      '        {"text": "exact text from document", "reason": "why this needs improvement"}\n' +
+      '        {"text": "exact text from presentation", "reason": "why this needs improvement"}\n' +
       '      ]\n' +
       '    }\n' +
       '  }\n' +
@@ -820,10 +828,10 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
       }
     }
 
-    var userMessage = 'Document text:\n---\n' + documentText + '\n---\n' + rubricDescription +
+    var userMessage = 'Presentation text:\n---\n' + presentationText + '\n---\n' + rubricDescription +
       '\nFor each criterion, identify text segments that do NOT meet the target grade level. ' +
       'Extract the BEGINNING portion (first 5-10 words) of each problematic segment. ' +
-      'Make sure the text matches EXACTLY as it appears in the document.';
+      'Make sure the text matches EXACTLY as it appears in the presentation.';
 
     Logger.log('Calling Claude API with rubric-based prompt');
 
@@ -853,7 +861,7 @@ function analyzeDocumentWithRubric(selectedCriteria, targetGrade, rubricData) {
     var message = 'Rubric analysis complete! Highlighted ' + highlightResult.highlightCount + ' text segment(s) across ' +
                   Object.keys(analysisResult.criteriaResults).length + ' criteria.';
     if (highlightResult.notFoundCount > 0) {
-      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the document.';
+      message += '\n\nNote: ' + highlightResult.notFoundCount + ' segment(s) could not be found in the presentation.';
     }
 
     return {
@@ -932,18 +940,18 @@ function parseRubricResponse(responseText) {
 }
 
 /**
- * Highlights text segments with different colors based on criteria
+ * Highlights text segments with different colors based on criteria (Slides version)
  * @param {Object} criteriaResults - Object mapping criterion names to their highlights
  * @param {Object} colorMap - Object mapping criterion names to colors
  * @return {Object} Result with highlight count
  */
 function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
-  var doc = DocumentApp.getActiveDocument();
-  var body = doc.getBody();
+  var presentation = SlidesApp.getActivePresentation();
+  var slides = presentation.getSlides();
   var highlightCount = 0;
   var notFoundCount = 0;
 
-  Logger.log('=== Starting multi-color highlighting ===');
+  Logger.log('=== Starting multi-color highlighting for Slides ===');
 
   for (var criterionName in criteriaResults) {
     if (!criteriaResults.hasOwnProperty(criterionName)) continue;
@@ -966,63 +974,49 @@ function highlightTextSegmentsWithColors(criteriaResults, colorMap) {
       Logger.log('\n--- Segment ' + (i+1) + ' for ' + criterionName + ' ---');
       Logger.log('Text: "' + textToHighlight + '"');
 
-      // Try exact match first
-      var searchResult = body.findText(textToHighlight);
+      var foundAny = false;
 
-      if (searchResult === null) {
-        // Try fallback strategies (same as original function)
-        var foundWithFallback = false;
+      // Search through all slides and shapes
+      for (var slideIndex = 0; slideIndex < slides.length; slideIndex++) {
+        var slide = slides[slideIndex];
+        var shapes = slide.getShapes();
 
-        if (!foundWithFallback && textToHighlight.match(/['\u0027\u2018\u2019\u0060""\u0022\u201C\u201D]/)) {
-          try {
-            var regexPattern = createFlexiblePunctuationPattern(textToHighlight);
-            searchResult = body.findText(regexPattern);
-            if (searchResult !== null) {
-              foundWithFallback = true;
+        for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++) {
+          var shape = shapes[shapeIndex];
+
+          if (!shape.getText) {
+            continue;
+          }
+
+          var textRange = shape.getText();
+          var shapeText = textRange.asString();
+
+          // Find all occurrences of the text in this shape
+          var occurrences = findTextOccurrences(shapeText, textToHighlight);
+
+          if (occurrences.length > 0) {
+            Logger.log('Found ' + occurrences.length + ' occurrence(s) in slide ' + (slideIndex + 1) + ', shape ' + (shapeIndex + 1));
+
+            for (var k = 0; k < occurrences.length; k++) {
+              var occurrence = occurrences[k];
+              try {
+                // Get the specific text range and apply highlight with criterion color
+                var rangeToHighlight = textRange.getRange(occurrence.start, occurrence.end);
+                rangeToHighlight.getTextStyle().setBackgroundColor(color);
+                highlightCount++;
+                foundAny = true;
+              } catch (highlightError) {
+                Logger.log('Error highlighting at position ' + occurrence.start + '-' + occurrence.end + ': ' + highlightError.toString());
+              }
             }
-          } catch (regexError) {
-            Logger.log('Regex failed: ' + regexError.toString());
           }
-        }
-
-        if (!foundWithFallback && textToHighlight.includes('\n')) {
-          var textWithoutNewlines = textToHighlight.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-          searchResult = body.findText(textWithoutNewlines);
-          if (searchResult !== null) {
-            foundWithFallback = true;
-          }
-        }
-
-        if (!foundWithFallback && textToHighlight.length > 50) {
-          var words = textToHighlight.split(/\s+/);
-          if (words.length > 5) {
-            var shortPhrase = words.slice(0, Math.min(7, words.length)).join(' ');
-            searchResult = body.findText(shortPhrase);
-            if (searchResult !== null) {
-              foundWithFallback = true;
-            }
-          }
-        }
-
-        if (!foundWithFallback) {
-          notFoundCount++;
         }
       }
 
-      // Highlight all occurrences with the criterion's color
-      if (searchResult !== null) {
-        while (searchResult !== null) {
-          var element = searchResult.getElement();
-          var startOffset = searchResult.getStartOffset();
-          var endOffset = searchResult.getEndOffsetInclusive();
-
-          if (element.asText) {
-            element.asText().setBackgroundColor(startOffset, endOffset, color);
-            highlightCount++;
-          }
-
-          searchResult = body.findText(textToHighlight, searchResult);
-        }
+      if (!foundAny) {
+        Logger.log('Result: NOT FOUND in any slide');
+        notFoundCount++;
+      } else {
         Logger.log('✓ Highlighted with ' + color);
       }
     }
