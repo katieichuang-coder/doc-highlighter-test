@@ -1,23 +1,32 @@
-# Deploying as a Domain-Wide Add-on (Google Workspace Admin Required)
+# Deploying as a Domain-Wide Add-on
 
-This guide is for deploying the add-on so it appears in **ALL presentations automatically** for specific users.
+This guide is for deploying the add-on so it appears in **ALL presentations automatically** for users.
 
-## Requirements
+## ⚠️ Important: Choose the Right Approach
 
-- **Google Workspace account** (not personal Gmail)
-- **Admin access** to your Google Workspace domain
-- The add-on needs to be deployed and then installed domain-wide
+**If your users have personal Gmail accounts (not Google Workspace):**
+→ **Skip to [Approach 2: Google Workspace Marketplace](#approach-2-google-workspace-marketplace-unlisted)** (Unlisted)
+
+**If your users have Google Workspace accounts AND you have admin access:**
+→ **Use [Approach 1: Domain-Wide Installation](#approach-1-domain-wide-installation-workspace-only)** (Recommended)
+
+---
 
 ## Overview
 
 There are two approaches to make an add-on appear in all presentations:
 
-1. **Domain-wide installation** (Workspace Admin installs for all/specific users)
-2. **Google Workspace Marketplace** (Unlisted private add-on)
+1. **Domain-wide installation** - Requires Google Workspace accounts for all users + admin access
+2. **Google Workspace Marketplace (Unlisted)** - Works with personal Gmail accounts or Workspace accounts
 
-## Approach 1: Domain-Wide Installation (Recommended)
+## Approach 1: Domain-Wide Installation (Workspace Only)
 
-This is the most reliable method for private, organization-specific add-ons.
+**⚠️ Requirements:**
+- **All users must have Google Workspace accounts** (not personal Gmail)
+- **Admin access** to the Google Workspace domain
+- Users cannot be personal Gmail users
+
+This is the most reliable method for organization-specific add-ons where all users are on the same Workspace domain.
 
 ### Step 1: Prepare the Apps Script Project
 
@@ -101,7 +110,14 @@ Users should now see the add-on:
 
 ## Approach 2: Google Workspace Marketplace (Unlisted)
 
-This approach publishes the add-on to the Workspace Marketplace as an unlisted/private add-on.
+**✅ Best for users with personal Gmail accounts or mixed account types**
+
+This approach publishes the add-on to the Workspace Marketplace as an unlisted/public add-on. Users can install it once via a link, and then it appears automatically in ALL their presentations.
+
+**Note**: Marketplace listings require Google review before approval. During the review period (which can take several days to weeks):
+- Use the container-bound script approach (see [DEPLOYMENT.md](DEPLOYMENT.md)) as an interim solution
+- Add test presentations to an Editor Add-on deployment for testing
+- Users can manually copy the script to presentations they need to use immediately
 
 ### Step 1: Enable Workspace Marketplace SDK
 
@@ -128,16 +144,32 @@ This approach publishes the add-on to the Workspace Marketplace as an unlisted/p
    - Editor Add-on: Google Slides
    - Deployment ID: Your deployment ID from Apps Script
 5. Under **App Visibility**:
-   - Select **Private** or **Unlisted**
-   - If Private: Only users in your domain can install
-   - If Unlisted: Anyone with the link can install
+   - **Private**: Only users in your Google Workspace domain can install (requires Workspace)
+   - **Unlisted**: Anyone with the link can install (works with personal Gmail accounts)
+   - **Public**: Listed in Marketplace (requires full review and approval)
+
+   **For personal Gmail users**: Choose **Unlisted** or **Public**. Private will not work.
 
 ### Step 3: Publish the Listing
 
-1. Submit for review or publish as unlisted
-2. If unlisted, you'll get a direct installation URL
-3. Share this URL with your users
-4. They click the link and install the add-on
+1. **Submit for review**:
+   - Click **Publish** in the Marketplace SDK configuration
+   - Google will review your add-on (can take days to weeks)
+   - You'll receive email updates about the review status
+
+2. **During review period**:
+   - Use container-bound script deployment (see [DEPLOYMENT.md](DEPLOYMENT.md))
+   - Or add specific test presentations to an Editor Add-on deployment
+   - Users can manually copy the script to their presentations
+
+3. **After approval**:
+   - You'll receive a direct installation URL for unlisted add-ons
+   - Or the add-on will appear in Marketplace search if public
+
+4. **Share with users**:
+   - Send them the installation link
+   - They click **Install** and grant permissions
+   - The add-on now appears in ALL their Google Slides presentations
 
 ### Step 4: Users Install
 
@@ -181,12 +213,14 @@ This approach publishes the add-on to the Workspace Marketplace as an unlisted/p
 
 | Feature | Domain-Wide Install | Marketplace Unlisted |
 |---------|-------------------|---------------------|
+| **User account type** | ⚠️ Workspace only | ✅ Personal Gmail or Workspace |
 | **Appears automatically** | ✅ Yes | ✅ Yes (after user installs) |
 | **Admin required** | ✅ Yes | ❌ No |
 | **User action required** | ❌ No | ✅ Yes (one-time install) |
+| **Google review** | ❌ No | ✅ Yes (days to weeks) |
 | **Control** | Full admin control | User can uninstall |
 | **Setup complexity** | Moderate | High |
-| **Best for** | Organization deployment | External users / testing |
+| **Best for** | Workspace organizations | Personal Gmail users / Public |
 
 ---
 
@@ -194,17 +228,35 @@ This approach publishes the add-on to the Workspace Marketplace as an unlisted/p
 
 ### For Domain-Wide Installation:
 
-- You **must** have Google Workspace (not personal Gmail)
-- You **must** have Admin privileges
+- ⚠️ **All users must have Google Workspace accounts** - this will NOT work for personal Gmail users
+- You **must** have Admin privileges on the Workspace domain
 - Users cannot uninstall domain-wide apps (admin control)
+- No Google review required
 - Changes to the add-on require updating the deployment
 
-### For Marketplace Unlisted:
+### For Marketplace Unlisted/Public:
 
-- Can work with personal accounts (if published)
-- Users install themselves (one-time action)
+- ✅ **Works with personal Gmail accounts** and Workspace accounts
+- Users install themselves (one-time action via a link)
 - Users can uninstall if needed
-- Requires maintaining marketplace listing
+- **Requires Google review** (can take days to weeks)
+- Requires maintaining marketplace listing and complying with Marketplace policies
+
+### Interim Solution While Waiting for Marketplace Approval:
+
+While your Marketplace listing is under review, use one of these temporary solutions:
+
+1. **Container-bound script** (Recommended for interim use):
+   - Follow instructions in [DEPLOYMENT.md](DEPLOYMENT.md)
+   - Users can make a copy of a template presentation with the add-on
+   - Quick to set up, but requires manual installation per presentation
+
+2. **Editor Add-on with specific presentations**:
+   - Create a Test Deployment as an Editor Add-on
+   - Add specific test presentations to the deployment
+   - Useful for testing with a small group
+
+Once Marketplace approval is complete, users can uninstall the temporary solution and install the official Marketplace version.
 
 ### Script Properties for Shared API Key
 
@@ -236,12 +288,18 @@ For production deployment where the add-on appears in all presentations, you **m
 
 ## Next Steps
 
-If you have Google Workspace Admin access:
+**If users have personal Gmail accounts (not Workspace):**
+→ **Use Approach 2** (Marketplace unlisted/public)
+→ While waiting for approval, use container-bound script (DEPLOYMENT.md)
+
+**If all users have Google Workspace accounts AND you have Admin access:**
 → **Use Approach 1** (Domain-wide installation)
+→ Fastest deployment, no review required
 
-If you don't have Admin access:
+**If users have Workspace accounts but you don't have Admin access:**
 → **Use Approach 2** (Marketplace unlisted)
-→ Or request your admin to do Approach 1
+→ Or request your Workspace admin to do Approach 1
 
-If neither works:
-→ You'll need to use the container-bound approach (per-presentation installation)
+**If you need a quick solution right now:**
+→ Use container-bound script approach (see DEPLOYMENT.md)
+→ Users make a copy of a template presentation with the add-on installed
