@@ -92,18 +92,27 @@ Note: For production, you'll need to submit for verification or stay in "Testing
 
 ## Step 3: Deploy the Add-on
 
+**Important**: Before deploying, ensure your `appsscript.json` includes the `urlFetchWhitelist` for the Claude API (already included in this project):
+```json
+"urlFetchWhitelist": [
+  "https://api.anthropic.com/"
+]
+```
+
 ### 3.1 Create a Deployment
+
+**Note**: The deployment interface may vary. Some users see a detailed form, others see a simplified version with just a description field. Both work for creating deployments.
 
 1. In Apps Script editor, click **Deploy** → **New deployment**
 2. Click the gear icon ⚙️ next to "Select type"
 3. Choose **Add-on**
-4. Fill in the deployment details:
-   - **Add-on title**: Claude AI Rubric Analyser for Slides
-   - **Description**: AI-powered rubric analysis and highlighting for Google Slides presentations
-   - **Post-install tip** (optional): "Click 'Claude AI' menu or open the sidebar to get started"
-   - **Help URL** (optional): Link to documentation
-   - **Version**: New version
-   - **Version description**: "Initial production deployment"
+4. Fill in the deployment details (fields available may vary):
+   - **Description** (required): "AI-powered rubric analysis and highlighting for Google Slides presentations"
+   - **Add-on title** (if shown): Claude AI Rubric Analyser for Slides
+   - **Post-install tip** (optional, if shown): "Click 'Claude AI' menu or open the sidebar to get started"
+   - **Help URL** (optional, if shown): Link to documentation
+   - **Version** (if shown): New version
+   - **Version description** (if shown): "Initial production deployment"
 5. Click **Deploy**
 
 ### 3.2 Get the Deployment ID and Install Link

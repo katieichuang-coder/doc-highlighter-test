@@ -25,7 +25,10 @@
         "runFunction": "showSidebar",
         "enabled": true
       },
-      "useLocaleFromApp": true
+      "useLocaleFromApp": true,
+      "urlFetchWhitelist": [
+        "https://api.anthropic.com/"
+      ]
     },
     "slides": {
       "homepageTrigger": {
