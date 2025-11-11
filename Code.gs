@@ -662,10 +662,17 @@ function readRubricDocument(documentId) {
 
 /**
  * Parses a table into rubric criteria structure
- * Expected format:
- * | Criteria | Grade 1 | Grade 2 | Grade 3 | Grade 4 | Grade 5 |
- * |----------|---------|---------|---------|---------|---------|
- * | Grammar  | desc    | desc    | desc    | desc    | desc    |
+ * Supports two patterns:
+ * Pattern A (single criterion column):
+ * | Criteria | Grade 1 | Grade 2 | Grade 3 |
+ * |----------|---------|---------|---------|
+ * | Grammar  | desc    | desc    | desc    |
+ *
+ * Pattern B (two criterion columns with sub-criteria):
+ * | Parent | Sub-Criterion | Grade 1 | Grade 2 | Grade 3 |
+ * |--------|---------------|---------|---------|---------|
+ * | Method | Summary       | desc    | desc    | desc    |
+ * |        | Data process  | desc    | desc    | desc    |
  *
  * @param {Table} table - The table element from Google Docs
  * @param {number} tableIndex - Optional table number for logging (1-based)
@@ -682,48 +689,125 @@ function parseRubricTable(table, tableIndex) {
       };
     }
 
-    // Parse header row to get grade levels
+    // Parse header row to determine table structure and grade levels
     var headerRow = table.getRow(0);
     var numCols = headerRow.getNumCells();
 
     if (numCols < 2) {
       return {
         success: false,
-        error: 'Rubric table must have at least 2 columns (Criteria + at least 1 grade level).'
+        error: 'Rubric table must have at least 2 columns.'
       };
     }
 
+    // Detect if we have 2 criterion columns (Pattern B) or 1 criterion column (Pattern A)
+    // Pattern B: Parent | Sub-Criterion | Grade 0 | Grade 1 | ...
+    // Pattern A: Criteria | Grade 0 | Grade 1 | ...
+    var hasTwoCriterionColumns = false;
+    var gradeStartCol = 1; // Default: grades start at column 1
+
+    // Check if second column header looks like a sub-criterion column
+    if (numCols >= 3) {
+      var col1Header = headerRow.getCell(1).getText().trim().toLowerCase();
+      // Common sub-criterion column headers
+      if (col1Header === '' ||
+          col1Header.includes('sub') ||
+          col1Header.includes('criterion') ||
+          col1Header.includes('criteria') ||
+          col1Header.includes('item') ||
+          col1Header.includes('aspect')) {
+        // Check if column 2 looks like a grade (contains number or "grade")
+        var col2Header = headerRow.getCell(2).getText().trim().toLowerCase();
+        if (col2Header.includes('grade') || col2Header.includes('level') || col2Header.includes('mark') || /\d/.test(col2Header)) {
+          hasTwoCriterionColumns = true;
+          gradeStartCol = 2;
+        }
+      }
+    }
+
+    // Parse grade levels
     var gradeLevels = [];
-    for (var col = 1; col < numCols; col++) {
+    for (var col = gradeStartCol; col < numCols; col++) {
       var cellText = headerRow.getCell(col).getText().trim();
       gradeLevels.push(cellText);
     }
 
     var tableLabel = tableIndex ? ' (Table ' + tableIndex + ')' : '';
+    Logger.log('Table structure' + tableLabel + ': ' + (hasTwoCriterionColumns ? '2 criterion columns' : '1 criterion column'));
     Logger.log('Found grade levels' + tableLabel + ': ' + gradeLevels.join(', '));
 
     // Parse criteria rows
     var criteria = [];
+    var currentParent = null;
+
     for (var row = 1; row < numRows; row++) {
       var rowElement = table.getRow(row);
-      var criterionName = rowElement.getCell(0).getText().trim();
 
-      if (!criterionName) {
-        continue; // Skip empty rows
+      var parentName = '';
+      var subName = '';
+
+      if (hasTwoCriterionColumns) {
+        // Pattern B: Two criterion columns
+        parentName = rowElement.getCell(0).getText().trim();
+        subName = rowElement.getCell(1).getText().trim();
+
+        // Handle merged parent cells (empty means use previous parent)
+        if (!parentName && currentParent) {
+          parentName = currentParent;
+        } else if (parentName) {
+          currentParent = parentName;
+        }
+
+        // Skip rows with no sub-criterion name
+        if (!subName) {
+          continue;
+        }
+
+        // Combine parent and sub names
+        var finalName = parentName ? parentName + '-' + subName : subName;
+
+      } else {
+        // Pattern A: Single criterion column (existing logic)
+        var rawCriterionName = rowElement.getCell(0).getText();
+        var criterionName = rawCriterionName.trim();
+
+        // Skip empty rows
+        if (!criterionName) {
+          continue;
+        }
+
+        // Check if this is an indented sub-criterion
+        var isIndented = rawCriterionName !== criterionName &&
+                         (rawCriterionName.startsWith(' ') || rawCriterionName.startsWith('\t'));
+
+        if (isIndented && currentParent) {
+          var finalName = currentParent + '-' + criterionName;
+        } else {
+          var finalName = criterionName;
+          currentParent = criterionName;
+        }
       }
 
+      // Parse grade descriptors
       var gradeDescriptors = {};
-      for (var col = 1; col < numCols; col++) {
+      var hasDescriptors = false;
+      for (var col = gradeStartCol; col < numCols; col++) {
         var descriptor = rowElement.getCell(col).getText().trim();
-        gradeDescriptors[gradeLevels[col - 1]] = descriptor;
+        var gradeIndex = col - gradeStartCol;
+        gradeDescriptors[gradeLevels[gradeIndex]] = descriptor;
+        if (descriptor) {
+          hasDescriptors = true;
+        }
       }
 
-      criteria.push({
-        name: criterionName,
-        descriptors: gradeDescriptors
-      });
-
-      Logger.log('Parsed criterion' + tableLabel + ': ' + criterionName);
+      // Only add criteria with descriptors
+      if (hasDescriptors) {
+        criteria.push({
+          name: finalName,
+          descriptors: gradeDescriptors
+        });
+        Logger.log('Parsed criterion' + tableLabel + ': ' + finalName);
+      }
     }
 
     if (criteria.length === 0) {
