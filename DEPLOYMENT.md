@@ -39,30 +39,37 @@ This is the **easiest and most reliable method** for per-presentation deployment
    - Copy the entire contents of `Code.gs` from this repository
    - Paste it into the editor
    - The file should already be named "Code.gs"
-   - **Note**: This add-on uses CardService (not HtmlService), so there's no Sidebar.html file needed
 
-4. **Configure the Manifest**
+4. **Add Sidebar.html**
+   - Click the **+** button next to "Files"
+   - Select **HTML**
+   - Name it exactly: `Sidebar` (no file extension)
+   - Copy the entire contents of `Sidebar.html` from this repository
+   - Paste it into the editor
+   - **Note**: This add-on uses BOTH HtmlService (for menus) and CardService (for Workspace Add-on deployment)
+
+5. **Configure the Manifest**
    - Click **Project Settings** (gear icon in left sidebar)
    - Check "Show 'appsscript.json' manifest file in editor"
    - Go back to the Editor (click **<>** icon)
    - You should now see `appsscript.json` in the files list
    - Click it and replace the entire contents with the `appsscript.json` from this repository
 
-5. **Save the Project**
+6. **Save the Project**
    - Click the save icon (💾) or press Ctrl+S (Cmd+S on Mac)
    - Name your project: "Claude AI Rubric Analyser"
 
-6. **Close and Reopen the Presentation**
+7. **Close and Reopen the Presentation**
    - Close the presentation completely
    - Reopen it
    - You should see "Claude AI" in the menu bar (under Extensions or as a top-level menu)
 
-7. **Set Your API Key**
+8. **Set Your API Key**
    - Click **Claude AI** → **Set API Key**
    - Enter your Claude API key
    - Click OK
 
-8. **Grant Permissions**
+9. **Grant Permissions**
    - First time you use it, you'll see an authorization dialog
    - Click **Continue** and **Allow**
    - If you see "App isn't verified", click **Advanced** → **Go to [Project Name] (unsafe)**
