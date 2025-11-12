@@ -12,13 +12,9 @@
   "urlFetchWhitelist": [
     "https://api.anthropic.com/"
   ],
-  "webapp": {
-    "access": "MYSELF",
-    "executeAs": "USER_DEPLOYING"
-  },
   "addOns": {
     "common": {
-      "name": "Claude AI Rubric Analyzer for Slides",
+      "name": "Claude AI Rubric Analyser for Slides",
       "logoUrl": "https://ssl.gstatic.com/docs/common/product/slides_icon_1920.png",
       "layoutProperties": {
         "primaryColor": "#D97757",

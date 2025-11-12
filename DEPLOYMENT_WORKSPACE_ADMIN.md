@@ -32,10 +32,10 @@ This is the most reliable method for organization-specific add-ons where all use
 
 1. Go to [script.google.com](https://script.google.com)
 2. Create a **standalone** project (not bound to a specific presentation)
-3. Add all three files:
+3. Add the required files:
    - Code.gs (copy from repository)
-   - Sidebar.html (copy from repository)
    - appsscript.json (copy from repository)
+   - **Note**: This add-on uses CardService UI, so there's no Sidebar.html file needed
 4. Save the project with a clear name: "Claude AI Rubric Analyser"
 
 ### Step 2: Link to Google Cloud Project

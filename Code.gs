@@ -9,25 +9,45 @@ const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Creates a custom menu in Google Slides when the presentation is opened
- * Works for both standalone scripts and as a Workspace Add-on
+ * For container-bound scripts (backwards compatibility)
  * @param {Object} e - The event parameter for add-on triggers (optional)
  */
 function onOpen(e) {
-  SlidesApp.getUi()
-    .createMenu('Claude AI')
-    .addItem('Analyse Presentation', 'showSidebar')
-    .addItem('Set API Key', 'showApiKeyDialog')
-    .addToUi();
+  // Check if this is an add-on or container-bound script
+  var addOnMode = e && e.authMode && e.authMode !== ScriptApp.AuthMode.NONE;
+
+  // For container-bound scripts, create a menu
+  // For add-ons, the CardService UI is used instead via homepageTrigger
+  if (!addOnMode) {
+    SlidesApp.getUi()
+      .createMenu('Claude AI')
+      .addItem('Analyse Presentation', 'openCardSidebar')
+      .addItem('Set API Key', 'showApiKeyDialog')
+      .addToUi();
+  }
+}
+
+/**
+ * Opens the CardService sidebar (for container-bound script menu)
+ * This provides backwards compatibility for container-bound deployments
+ */
+function openCardSidebar() {
+  var card = createMainCard();
+  var ui = CardService.newUniversalActionResponseBuilder()
+    .displayAddOnCards([card])
+    .build();
+  return ui;
 }
 
 /**
  * Called when user grants file-level permissions to the add-on
  * This allows the add-on to access the current presentation
+ * For Workspace Add-ons, this returns the main card
  * @param {Object} e - The event parameter containing authorization info
+ * @return {Card} The main card to display
  */
 function onFileScopeGranted(e) {
-  // Simply show the sidebar when file scope is granted
-  showSidebar();
+  return createMainCard();
 }
 
 /**
@@ -49,13 +69,254 @@ function showApiKeyDialog() {
 }
 
 /**
- * Opens the sidebar for user input
+ * Creates the main card for the add-on homepage
+ * This is called by the homepageTrigger defined in appsscript.json
+ * @param {Object} e - Event object (optional)
+ * @return {Card} The card to display
  */
-function showSidebar() {
-  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+function showSidebar(e) {
+  return createMainCard();
+}
+
+/**
+ * Creates the main card with rubric and analysis options
+ * @return {Card} The main interface card
+ */
+function createMainCard() {
+  var card = CardService.newCardBuilder();
+
+  card.setHeader(CardService.newCardHeader()
     .setTitle('Claude AI Analyser')
-    .setWidth(300);
-  SlidesApp.getUi().showSidebar(html);
+    .setSubtitle('Rubric-based presentation analysis'));
+
+  // Section 1: Rubric Loading
+  var rubricSection = CardService.newCardSection()
+    .setHeader('Load Rubric');
+
+  rubricSection.addWidget(CardService.newTextInput()
+    .setFieldName('rubricDocId')
+    .setTitle('Rubric Document ID')
+    .setHint('Enter Google Doc ID containing rubric'));
+
+  rubricSection.addWidget(CardService.newTextButton()
+    .setText('Load Rubric')
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('onLoadRubric')));
+
+  card.addSection(rubricSection);
+
+  // Section 2: Custom Analysis (no rubric)
+  var customSection = CardService.newCardSection()
+    .setHeader('Custom Analysis')
+    .setCollapsible(true);
+
+  customSection.addWidget(CardService.newTextInput()
+    .setFieldName('customPrompt')
+    .setTitle('Analysis Prompt')
+    .setHint('E.g., "Find all passive voice sentences"')
+    .setMultiline(true));
+
+  customSection.addWidget(CardService.newTextButton()
+    .setText('Analyse')
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('onCustomAnalyze')));
+
+  card.addSection(customSection);
+
+  // Section 3: Clear Highlights
+  var clearSection = CardService.newCardSection();
+
+  clearSection.addWidget(CardService.newTextButton()
+    .setText('Clear All Highlights')
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('onClearHighlights')));
+
+  card.addSection(clearSection);
+
+  return card.build();
+}
+
+/**
+ * Handles the "Load Rubric" button click
+ * @param {Object} e - Event object with form inputs
+ * @return {ActionResponse} Navigation to rubric criteria card
+ */
+function onLoadRubric(e) {
+  var rubricDocId = e.formInput.rubricDocId;
+
+  if (!rubricDocId || rubricDocId.trim() === '') {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Please enter a Rubric Document ID'))
+      .build();
+  }
+
+  // Load and parse the rubric
+  var rubricData = readRubricDocument(rubricDocId.trim());
+
+  if (!rubricData.success) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Error: ' + rubricData.error))
+      .build();
+  }
+
+  // Store rubric data in cache for later use
+  var cache = CacheService.getUserCache();
+  cache.put('rubricData', JSON.stringify(rubricData), 1800); // 30 min expiry
+  cache.put('rubricDocId', rubricDocId.trim(), 1800);
+
+  // Build card with criteria checkboxes
+  var card = createRubricCriteriaCard(rubricData);
+
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(card))
+    .setNotification(CardService.newNotification()
+      .setText('Loaded ' + rubricData.criteria.length + ' criteria'))
+    .build();
+}
+
+/**
+ * Creates a card with rubric criteria as checkboxes
+ * @param {Object} rubricData - The parsed rubric data
+ * @return {Card} Card with criteria selection
+ */
+function createRubricCriteriaCard(rubricData) {
+  var card = CardService.newCardBuilder();
+
+  card.setHeader(CardService.newCardHeader()
+    .setTitle('Select Criteria')
+    .setSubtitle(rubricData.criteria.length + ' criteria available'));
+
+  // Create selection input with criteria
+  var selectionInput = CardService.newSelectionInput()
+    .setType(CardService.SelectionInputType.CHECK_BOX)
+    .setFieldName('selectedCriteria');
+
+  for (var i = 0; i < rubricData.criteria.length; i++) {
+    var criterion = rubricData.criteria[i];
+    selectionInput.addItem(criterion.name, criterion.name, false);
+  }
+
+  var criteriaSection = CardService.newCardSection()
+    .setHeader('Criteria (select to analyse)')
+    .addWidget(selectionInput);
+
+  card.addSection(criteriaSection);
+
+  // Add analyze button
+  var actionSection = CardService.newCardSection();
+  actionSection.addWidget(CardService.newTextButton()
+    .setText('Analyse with Selected Criteria')
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('onAnalyzeWithRubric')));
+
+  card.addSection(actionSection);
+
+  return card.build();
+}
+
+/**
+ * Handles the "Analyse with Selected Criteria" button click
+ * @param {Object} e - Event object with form inputs
+ * @return {ActionResponse} Response with analysis results
+ */
+function onAnalyzeWithRubric(e) {
+  var selectedCriteria = e.formInput.selectedCriteria;
+
+  if (!selectedCriteria || selectedCriteria.length === 0) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Please select at least one criterion'))
+      .build();
+  }
+
+  // Retrieve rubric data from cache
+  var cache = CacheService.getUserCache();
+  var rubricDataJson = cache.get('rubricData');
+
+  if (!rubricDataJson) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Rubric data expired. Please reload the rubric.'))
+      .build();
+  }
+
+  var rubricData = JSON.parse(rubricDataJson);
+
+  // Convert selectedCriteria to array if it's a single value
+  if (typeof selectedCriteria === 'string') {
+    selectedCriteria = [selectedCriteria];
+  }
+
+  // Run the analysis
+  var result = analyzeDocumentWithRubric(selectedCriteria, rubricData);
+
+  if (!result.success) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Error: ' + result.error))
+      .build();
+  }
+
+  // Show success notification
+  return CardService.newActionResponseBuilder()
+    .setNotification(CardService.newNotification()
+      .setText(result.message))
+    .build();
+}
+
+/**
+ * Handles the "Analyse" button click for custom analysis
+ * @param {Object} e - Event object with form inputs
+ * @return {ActionResponse} Response with analysis results
+ */
+function onCustomAnalyze(e) {
+  var customPrompt = e.formInput.customPrompt;
+
+  if (!customPrompt || customPrompt.trim() === '') {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Please enter an analysis prompt'))
+      .build();
+  }
+
+  // Run the analysis
+  var result = analyzeDocument(customPrompt.trim());
+
+  if (!result.success) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Error: ' + result.error))
+      .build();
+  }
+
+  // Show success notification
+  return CardService.newActionResponseBuilder()
+    .setNotification(CardService.newNotification()
+      .setText(result.message))
+    .build();
+}
+
+/**
+ * Handles the "Clear All Highlights" button click
+ * @param {Object} e - Event object
+ * @return {ActionResponse} Response with clear result
+ */
+function onClearHighlights(e) {
+  var result = clearHighlights();
+
+  if (!result.success) {
+    return CardService.newActionResponseBuilder()
+      .setNotification(CardService.newNotification()
+        .setText('Error: ' + result.error))
+      .build();
+  }
+
+  return CardService.newActionResponseBuilder()
+    .setNotification(CardService.newNotification()
+      .setText(result.message))
+    .build();
 }
 
 /**

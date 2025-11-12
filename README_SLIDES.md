@@ -21,13 +21,13 @@ A Google Workspace Add-on that integrates Claude AI with Google Slides to analys
 ## How It Works
 
 1. User opens any Google Slides presentation
-2. Accesses the "Claude AI" menu (appears automatically for installed users)
-3. Opens the sidebar and enters a Google Doc ID containing rubric tables
+2. Accesses the "Claude AI" interface (appears automatically in the right sidebar for installed users)
+3. Enters a Google Doc ID containing rubric tables using the CardService UI
 4. Loads the rubric - criteria appear as checkboxes (unchecked by default)
 5. Selects which criteria to analyse
 6. Claude AI analyses the presentation text against selected criteria at the highest grade level
 7. Matching text is highlighted with different colours for each criterion
-8. Users can clear highlights and criteria selections to start fresh
+8. Users can clear highlights and start fresh with different criteria
 
 ## Rubric Structure Support
 
@@ -100,20 +100,17 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 ### Files
 
 - **Code.gs**: Main server-side Apps Script code
+  - CardService UI implementation (Workspace Add-on compatible)
   - Text extraction from shapes, groups, and tables
   - Rubric parsing with Pattern A/B detection
   - Claude API integration
   - Multi-colour highlighting
   - Clear highlights functionality
-- **Sidebar.html**: Client-side UI
-  - Rubric loading interface
-  - Criteria selection checkboxes
-  - Analysis controls
-  - Colour legend display
 - **appsscript.json**: Add-on manifest
   - OAuth scopes configuration
   - Add-on triggers (homepage, file scope)
   - Branding and layout
+  - **Note**: This add-on uses CardService for the UI, not HtmlService, making it compatible with Google Workspace Marketplace deployment
 
 ### API Configuration
 
@@ -133,14 +130,23 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions as a pri
 
 #### Code.gs
 
-- `onOpen()`: Creates the "Claude AI" menu
-- `onFileScopeGranted()`: Triggered when user grants file access
-- `showSidebar()`: Opens the analysis sidebar
+**CardService UI Functions:**
+- `showSidebar()`: Homepage trigger function that returns the main Card
+- `createMainCard()`: Creates the main CardService interface
+- `createRubricCriteriaCard()`: Creates card with criteria checkboxes
+- `onLoadRubric()`: Handles rubric loading action
+- `onAnalyzeWithRubric()`: Handles rubric analysis action
+- `onCustomAnalyze()`: Handles custom prompt analysis
+- `onClearHighlights()`: Handles clear highlights action
+
+**Core Functions:**
+- `onOpen()`: Creates the "Claude AI" menu (for container-bound compatibility)
+- `onFileScopeGranted()`: Triggered when user grants file access, returns main card
 - `showApiKeyDialog()`: Dialog for setting Claude API key
 - `getPresentationText()`: Extracts all text from slides (shapes, groups, tables)
 - `extractTextFromGroup()`: Recursively extracts text from grouped objects
 - `extractTextFromTable()`: Extracts text from table cells
-- `loadRubricFromDoc()`: Loads and parses rubric tables from Google Docs
+- `readRubricDocument()`: Loads and parses rubric tables from Google Docs
 - `parseRubricTable()`: Parses rubric table structure (auto-detects Pattern A/B)
 - `analyzeDocumentWithRubric()`: Orchestrates Claude analysis
 - `callClaudeAPI()`: Handles API communication
