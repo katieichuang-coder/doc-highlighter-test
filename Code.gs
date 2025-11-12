@@ -9,34 +9,26 @@ const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Creates a custom menu in Google Slides when the presentation is opened
- * For container-bound scripts (backwards compatibility)
+ * For container-bound scripts and menu-based access
  * @param {Object} e - The event parameter for add-on triggers (optional)
  */
 function onOpen(e) {
-  // Check if this is an add-on or container-bound script
-  var addOnMode = e && e.authMode && e.authMode !== ScriptApp.AuthMode.NONE;
-
-  // For container-bound scripts, create a menu
-  // For add-ons, the CardService UI is used instead via homepageTrigger
-  if (!addOnMode) {
-    SlidesApp.getUi()
-      .createMenu('Claude AI')
-      .addItem('Analyse Presentation', 'openCardSidebar')
-      .addItem('Set API Key', 'showApiKeyDialog')
-      .addToUi();
-  }
+  SlidesApp.getUi()
+    .createMenu('Claude AI')
+    .addItem('Analyse Presentation', 'showSidebar')
+    .addItem('Set API Key', 'showApiKeyDialog')
+    .addToUi();
 }
 
 /**
- * Opens the CardService sidebar (for container-bound script menu)
- * This provides backwards compatibility for container-bound deployments
+ * Opens the HTML sidebar for menu-based access
+ * Used by container-bound scripts and regular menu clicks
  */
-function openCardSidebar() {
-  var card = createMainCard();
-  var ui = CardService.newUniversalActionResponseBuilder()
-    .displayAddOnCards([card])
-    .build();
-  return ui;
+function showSidebar() {
+  var html = HtmlService.createHtmlOutputFromFile('Sidebar')
+    .setTitle('Claude AI Analyser')
+    .setWidth(300);
+  SlidesApp.getUi().showSidebar(html);
 }
 
 /**
@@ -71,10 +63,11 @@ function showApiKeyDialog() {
 /**
  * Creates the main card for the add-on homepage
  * This is called by the homepageTrigger defined in appsscript.json
+ * Used for Workspace Add-on deployments (Marketplace)
  * @param {Object} e - Event object (optional)
  * @return {Card} The card to display
  */
-function showSidebar(e) {
+function showSidebarCard(e) {
   return createMainCard();
 }
 
